@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "MediaLedInterfaceNew (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "MediaLedInterfaceNew (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

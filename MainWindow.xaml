@@ -1,0 +1,2092 @@
+<Window
+    x:Class="MediaLedInterfaceNew.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:sys="using:System"
+    xmlns:local="using:MediaLedInterfaceNew"
+    mc:Ignorable="d">
+
+    <Grid x:Name="RootGrid" 
+          KeyDown="RootGrid_KeyDown" 
+          PointerMoved="RootGrid_PointerMoved" 
+          PointerPressed="RootGrid_PointerPressed"
+        RequestedTheme="Dark">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="24"/>
+        </Grid.RowDefinitions>
+
+        <Grid.Resources>
+            <SolidColorBrush x:Key="SurfaceBrush" Color="Transparent"/>
+            <SolidColorBrush x:Key="RailBrush" Color="#181818"/>
+            <SolidColorBrush x:Key="AccentBrush" Color="#FF8C00"/>
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A0A0A0"/>
+            <local:IndexToVisConverter x:Key="IndexToVisConverter"/>
+            <Style x:Key="NavRailButtonStyle" TargetType="RadioButton">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                <Setter Property="Height" Value="50"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Grid x:Name="RootGrid" Background="{TemplateBinding Background}">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="PointerOver">
+                                            <Storyboard>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RootGrid" Storyboard.TargetProperty="Background">
+                                                    <DiscreteObjectKeyFrame KeyTime="0" Value="#10FFFFFF"/>
+                                                </ObjectAnimationUsingKeyFrames>
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed"/>
+                                    </VisualStateGroup>
+
+                                    <VisualStateGroup x:Name="CheckStates">
+                                        <VisualState x:Name="Checked">
+                                            <Storyboard>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RootGrid" Storyboard.TargetProperty="Background">
+                                                    <DiscreteObjectKeyFrame KeyTime="0" Value="{StaticResource SurfaceBrush}"/>
+                                                </ObjectAnimationUsingKeyFrames>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Foreground">
+                                                    <DiscreteObjectKeyFrame KeyTime="0" Value="{StaticResource AccentBrush}"/>
+                                                </ObjectAnimationUsingKeyFrames>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="IconGlyph" Storyboard.TargetProperty="Foreground">
+                                                    <DiscreteObjectKeyFrame KeyTime="0" Value="{StaticResource AccentBrush}"/>
+                                                </ObjectAnimationUsingKeyFrames>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ActiveBar" Storyboard.TargetProperty="Visibility">
+                                                    <DiscreteObjectKeyFrame KeyTime="0" Value="Visible"/>
+                                                </ObjectAnimationUsingKeyFrames>
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="Unchecked"/>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left" Orientation="Horizontal" Margin="15,0,0,0">
+                                    <FontIcon x:Name="IconGlyph" Glyph="{TemplateBinding Tag}" FontSize="24" Margin="0,0,15,0" Foreground="{TemplateBinding Foreground}"/>
+                                    <ContentPresenter x:Name="ContentPresenter" Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <Image x:Name="PART_PlayingIcon" 
+       Source="ms-appx:///Assets/playing.gif"
+       Width="19" 
+       Height="19" 
+       HorizontalAlignment="Left" 
+       VerticalAlignment="Top"
+       Margin="32,0,0,0" 
+       Visibility="Collapsed"/>
+                                <Rectangle x:Name="ActiveBar" HorizontalAlignment="Left" Width="4" Height="40" Fill="{StaticResource AccentBrush}" Visibility="Collapsed" RadiusX="2" RadiusY="2"/>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </Grid.Resources>
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" x:Name="ColNav"/>
+            <ColumnDefinition Width="310" x:Name="ColSidebar"/>
+            <ColumnDefinition Width="4" x:Name="ColSplitter"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Grid Grid.Column="0" x:Name="AreaNav" Width="51" Background="{StaticResource RailBrush}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel x:Name="pnlNavTop" Grid.Row="0" Margin="0,10,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="9,0,0,5">
+                    <Image Source="ms-appx:///Assets/app_icon.gif" Width="35" Height="35"/>
+                    <StackPanel x:Name="pnlAppTitle" Orientation="Vertical" VerticalAlignment="Center" Margin="10,0,0,0" Visibility="Collapsed">
+                        <TextBlock Text="MediaLED" Foreground="{StaticResource AccentBrush}" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" LineHeight="14"/>
+                        <TextBlock Text="Interface" Foreground="{StaticResource AccentBrush}" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" LineHeight="14"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <Button x:Name="btnNavToggle" Click="btnNavToggle_Click" Background="Transparent" BorderThickness="0" Width="50" Height="50" HorizontalAlignment="Left">
+                    <FontIcon x:Name="iconNav" Glyph="&#xE700;" FontSize="18"/>
+                </Button>
+                <RadioButton x:Name="rbLibrary" Content="LIBRARY" Tag="&#xe838;" Click="OnNavTabClick" Style="{StaticResource NavRailButtonStyle}"/>
+                <RadioButton x:Name="rbMedia" Content="LOCAL" Tag="&#xea69;" Click="OnNavTabClick" Style="{StaticResource NavRailButtonStyle}" IsChecked="True"/>
+                <RadioButton x:Name="rbStream" Content="ONLINE" Tag="&#xe786;" Click="OnNavTabClick" Style="{StaticResource NavRailButtonStyle}"/>
+                <RadioButton x:Name="rbTV" Content="IPTV" Tag="&#xE7F4;" Click="OnNavTabClick" Style="{StaticResource NavRailButtonStyle}"/>
+                <RadioButton x:Name="rbSearch" Content="SEARCH" Tag="&#xE721;" Click="OnNavTabClick" Style="{StaticResource NavRailButtonStyle}"/>
+                <RadioButton x:Name="rbEffects" Content="EFFECTS" Tag="&#xE2B1;" Click="OnNavTabClick" Style="{StaticResource NavRailButtonStyle}"/>
+                <RadioButton x:Name="rbSettings" Content="SETTING" Tag="&#xE713;" Click="OnNavTabClick" Style="{StaticResource NavRailButtonStyle}"/>
+                <RadioButton x:Name="rbInfo" Content="ABOUTS" Tag="&#xE946;" Click="OnNavTabClick" Style="{StaticResource NavRailButtonStyle}"/>
+            </StackPanel>
+
+            <Grid x:Name="pnlAudioViz" Grid.Row="1" 
+      VerticalAlignment="Bottom" 
+      HorizontalAlignment="Stretch" 
+      ColumnSpacing="1" 
+      Margin="2,0,2,10" 
+      Visibility="Collapsed">
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid.Resources>
+                    <Style x:Key="VizBarStyle" TargetType="Rectangle">
+                        <Setter Property="RadiusX" Value="0"/>
+                        <Setter Property="RadiusY" Value="0"/>
+                        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                        <Setter Property="VerticalAlignment" Value="Bottom"/>
+                        <Setter Property="Opacity" Value="0.8"/>
+                    </Style>
+
+                    <Style x:Key="VizPeakStyle" TargetType="Rectangle">
+                        <Setter Property="Height" Value="2"/>
+                        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                        <Setter Property="VerticalAlignment" Value="Bottom"/>
+                        <Setter Property="IsHitTestVisible" Value="False"/>
+                        <Setter Property="Fill" Value="White"/>
+                        <Setter Property="Opacity" Value="1.0"/>
+                    </Style>
+                </Grid.Resources>
+
+                <Rectangle x:Name="bar1" Grid.Column="0" Fill="#FF0000" Style="{StaticResource VizBarStyle}"/>
+                <Rectangle x:Name="peak1" Grid.Column="0" Style="{StaticResource VizPeakStyle}"/>
+
+                <Rectangle x:Name="bar2" Grid.Column="1" Fill="#FF4500" Style="{StaticResource VizBarStyle}"/>
+                <Rectangle x:Name="peak2" Grid.Column="1" Style="{StaticResource VizPeakStyle}"/>
+
+                <Rectangle x:Name="bar3" Grid.Column="2" Fill="#FF8C00" Style="{StaticResource VizBarStyle}"/>
+                <Rectangle x:Name="peak3" Grid.Column="2" Style="{StaticResource VizPeakStyle}"/>
+
+                <Rectangle x:Name="bar4" Grid.Column="3" Fill="#FFD700" Style="{StaticResource VizBarStyle}"/>
+                <Rectangle x:Name="peak4" Grid.Column="3" Style="{StaticResource VizPeakStyle}"/>
+
+                <Rectangle x:Name="bar5" Grid.Column="4" Fill="#00FF00" Style="{StaticResource VizBarStyle}"/>
+                <Rectangle x:Name="peak5" Grid.Column="4" Style="{StaticResource VizPeakStyle}"/>
+
+                <Rectangle x:Name="bar6" Grid.Column="5" Fill="#00FA9A" Style="{StaticResource VizBarStyle}"/>
+                <Rectangle x:Name="peak6" Grid.Column="5" Style="{StaticResource VizPeakStyle}"/>
+
+                <Rectangle x:Name="bar7" Grid.Column="6" Fill="#00FFFF" Style="{StaticResource VizBarStyle}"/>
+                <Rectangle x:Name="peak7" Grid.Column="6" Style="{StaticResource VizPeakStyle}"/>
+
+                <Rectangle x:Name="bar8" Grid.Column="7" Fill="#42b0f5" Style="{StaticResource VizBarStyle}"/>
+                <Rectangle x:Name="peak8" Grid.Column="7" Style="{StaticResource VizPeakStyle}"/>
+
+                <Rectangle x:Name="bar9" Grid.Column="8" Fill="#f542e0" Style="{StaticResource VizBarStyle}"/>
+                <Rectangle x:Name="peak9" Grid.Column="8" Style="{StaticResource VizPeakStyle}"/>
+            </Grid>
+        </Grid>
+
+        <Grid Grid.Column="1" x:Name="AreaSidebar" Background="{StaticResource SurfaceBrush}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="10,15,10,10" Spacing="8">
+                <TextBlock x:Name="txtSidebarHeader" Text="DANH SÁCH PHÁT MEDIA" FontSize="16" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Left" Margin="2,0,0,0"/>
+
+                <Grid x:Name="grpSearchBar">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <DropDownButton x:Name="btnSearchSource" VerticalAlignment="Center" Margin="0,0,10,0" Width="160">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon x:Name="iconCurrentSource" Glyph="&#xE714;" FontSize="14" Foreground="#FF0000"/>
+                            <TextBlock x:Name="txtCurrentSource" Text="YouTube"/>
+                        </StackPanel>
+                        <DropDownButton.Flyout>
+                            <MenuFlyout Placement="Bottom">
+                                <MenuFlyoutItem Text="YouTube" Foreground="#FF0000" Click="OnSearchSourceClick" Tag="YOUTUBE">
+                                    <MenuFlyoutItem.Icon>
+                                        <FontIcon Glyph="&#xe786;" Foreground="#FF0000"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutItem Text="Dailymotion" Foreground="#0066DC" Click="OnSearchSourceClick" Tag="DAILYMOTION">
+                                    <MenuFlyoutItem.Icon>
+                                        <FontIcon Glyph="&#xe786;" Foreground="#0066DC"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutSeparator/>
+                                <MenuFlyoutSubItem Text="PC này" Foreground="orange">
+                                    <MenuFlyoutSubItem.Icon>
+                                        <FontIcon Glyph="&#xE770;" Foreground="orange"/>
+                                    </MenuFlyoutSubItem.Icon>
+                                    <MenuFlyoutItem Text="Tất cả" Foreground="orange" Click="OnSearchSourceClick" Tag="PC_ALL">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xea69;" Foreground="orange"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem Text="Video" Foreground="orange" Click="OnSearchSourceClick" Tag="PC_VIDEO">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xE714;" Foreground="orange" />
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem Text="Nhạc" Foreground="orange" Click="OnSearchSourceClick" Tag="PC_AUDIO">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xE8D6;" Foreground="orange" />
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem Text="Ảnh" Foreground="orange" Click="OnSearchSourceClick" Tag="PC_IMAGE">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xEB9F;" Foreground="orange" />
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                </MenuFlyoutSubItem>
+                            </MenuFlyout>
+                        </DropDownButton.Flyout>
+                    </DropDownButton>
+                    <TextBox x:Name="txtSearch" Grid.Column="1" Height="34" PlaceholderText="Tìm kiếm..." TextChanged="txtSearch_TextChanged" KeyDown="txtSearch_KeyDown"/>
+                </Grid>
+
+                <StackPanel x:Name="grpListStats" Orientation="Horizontal" Margin="5,4,0,0" Spacing="6" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE71C;" FontSize="12" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="txtListStats" Text="..." FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </StackPanel>
+            </StackPanel>
+
+            <ListView x:Name="lstMedia" 
+          Grid.Row="1" 
+          Background="Transparent" 
+          Margin="0,0" 
+          SelectionMode="Extended" 
+          KeyDown="lstMedia_KeyDown" 
+          DoubleTapped="lstMedia_DoubleTapped" 
+          Visibility="Visible"
+          AllowDrop="True"
+          CanReorderItems="True" 
+          DragOver="lstMedia_DragOver"
+          Drop="lstMedia_Drop">
+                <ListView.Resources>
+                    <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#2600CED1" />
+                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#4000CED1" />
+                    <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="#10FFFFFF" />
+                    <Thickness x:Key="ListViewItemBorderThickness">4,0,0,0</Thickness>
+                    <SolidColorBrush x:Key="ListViewItemBorderBrushSelected" Color="#00CED1" />
+                </ListView.Resources>
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="MinHeight" Value="60"/>
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="Margin" Value="0"/>
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="local:MediaItem">
+                        <Grid Height="60" Margin="4,0,0,0" BorderBrush="#151515" BorderThickness="0,0,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="100" Height="56" CornerRadius="5" Background="#252525" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                <Grid>
+                                    <FontIcon Glyph="&#xE768;" FontSize="20" Foreground="#444444" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Image Source="{x:Bind Poster, Mode=OneWay}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Grid Background="#80000000" Visibility="{x:Bind local:MainWindow.IsVisibleIf(IsPlaying), Mode=OneWay}">
+                                        <FontIcon Glyph="&#xE768;" FontSize="24" Foreground="Red" Visibility="{x:Bind local:MainWindow.IsHiddenIf(IsPaused), Mode=OneWay}"/>
+                                        <FontIcon Glyph="&#xE769;" FontSize="24" Foreground="LimeGreen" Visibility="{x:Bind local:MainWindow.IsVisibleIf(IsPaused), Mode=OneWay}"/>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                            <Grid Grid.Column="1" VerticalAlignment="Center" Margin="5,0,0,0">
+                                <StackPanel Visibility="{x:Bind local:MainWindow.IsHiddenIf(IsPlaying), Mode=OneWay}">
+                                    <TextBlock Text="{x:Bind FileName}" FontFamily="Segoe UI" Foreground="White" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,0,0,1"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,1">
+                                        <Border Background="#333333" CornerRadius="2" Padding="3,0" Margin="0,0,6,0">
+                                            <TextBlock Text="{x:Bind Type}" Foreground="{StaticResource AccentBrush}" FontSize="9" FontWeight="Bold"/>
+                                        </Border>
+                                        <TextBlock Text="{x:Bind Duration}" Foreground="#999999" FontSize="11"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{x:Bind FullPath}" FontFamily="Segoe UI" Foreground="#555555" FontSize="10" TextTrimming="CharacterEllipsis" FontStyle="Italic"/>
+                                </StackPanel>
+                                <StackPanel Visibility="{x:Bind local:MainWindow.IsVisibleIf(IsPlaying), Mode=OneWay}">
+                                    <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" HorizontalScrollMode="Disabled" Margin="0,0,10,0">
+                                        <Canvas Height="20" Width="2000">
+                                            <TextBlock Text="{x:Bind FileName}" FontFamily="Segoe UI" Foreground="Red" FontSize="14" FontWeight="Bold">
+                                                <TextBlock.RenderTransform>
+                                                    <TranslateTransform x:Name="AnimatedTranslate"/>
+                                                </TextBlock.RenderTransform>
+                                                <TextBlock.Triggers>
+                                                    <EventTrigger RoutedEvent="TextBlock.Loaded">
+                                                        <BeginStoryboard>
+                                                            <Storyboard RepeatBehavior="Forever">
+                                                                <DoubleAnimation Storyboard.TargetName="AnimatedTranslate" Storyboard.TargetProperty="X" From="200" To="-400" Duration="0:0:15"/>
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </EventTrigger>
+                                                </TextBlock.Triggers>
+                                            </TextBlock>
+                                        </Canvas>
+                                    </ScrollViewer>
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,1">
+                                        <Border Background="#333333" CornerRadius="2" Padding="3,0" Margin="0,0,6,0">
+                                            <TextBlock Text="{x:Bind Type}" Foreground="{StaticResource AccentBrush}" FontSize="9" FontWeight="Bold"/>
+                                        </Border>
+                                        <TextBlock Text="{x:Bind Duration}" Foreground="Red" FontSize="11"/>
+                                    </StackPanel>
+                                    <TextBlock Text="ĐANG PHÁT..." Foreground="Red" FontSize="11" FontWeight="Bold" FontStyle="Italic" Visibility="{x:Bind local:MainWindow.IsHiddenIf(IsPaused), Mode=OneWay}"/>
+                                    <TextBlock Text="TẠM DỪNG..." Foreground="LimeGreen" FontSize="11" FontWeight="Bold" FontStyle="Italic" Visibility="{x:Bind local:MainWindow.IsVisibleIf(IsPaused), Mode=OneWay}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <ScrollViewer x:Name="grpSettings" Grid.Row="1" Visibility="Collapsed" Padding="15,0,15,0">
+                <StackPanel Spacing="8" Margin="0,10,0,0">
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xe705;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="SponsorBlock (Chặn quảng cáo)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ToggleSwitch x:Name="swSponsorBlock" OnContent="Đang bật" OffContent="Đã tắt" IsOn="True" Toggled="swSponsorBlock_Toggled"/>
+                            </Grid>
+                            <Expander Header="Tùy chỉnh &amp; Chú giải màu" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsExpanded="False" Background="Transparent" BorderThickness="0">
+                                <StackPanel Margin="0,0,0,10" Spacing="8">
+                                    <TextBlock Text="Màu hiển thị trên thanh thời gian:" FontSize="11" Foreground="Gray" FontStyle="Italic" Margin="0,0,0,5"/>
+                                    <CheckBox x:Name="chkSbSponsor" IsChecked="True" Tag="sponsor" Click="OnSponsorCategoryChanged">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <Border Width="16" Height="16" Background="LimeGreen" CornerRadius="3"/>
+                                            <TextBlock Text="Tài trợ (Sponsor)" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                    <CheckBox x:Name="chkSbIntro" Tag="intro" Click="OnSponsorCategoryChanged">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <Border Width="16" Height="16" Background="MediumPurple" CornerRadius="3"/>
+                                            <TextBlock Text="Đoạn mở đầu (Intro)" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                    <CheckBox x:Name="chkSbOutro" Tag="outro" Click="OnSponsorCategoryChanged">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <Border Width="16" Height="16" Background="Red" CornerRadius="3"/>
+                                            <TextBlock Text="Đoạn kết (Outro)" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                    <CheckBox x:Name="chkSbSelfPromo" Tag="selfpromo" Click="OnSponsorCategoryChanged">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <Border Width="16" Height="16" Background="DeepPink" CornerRadius="3"/>
+                                            <TextBlock Text="Tự quảng cáo (Self-promo)" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                    <CheckBox x:Name="chkSbInteraction" Tag="interaction" Click="OnSponsorCategoryChanged">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <Border Width="16" Height="16" Background="Cyan" CornerRadius="3"/>
+                                            <TextBlock Text="Kêu gọi tương tác" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                    <CheckBox x:Name="chkSbPreview" Tag="preview" Click="OnSponsorCategoryChanged">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <Border Width="16" Height="16" Background="DodgerBlue" CornerRadius="3"/>
+                                            <TextBlock Text="Xem trước tập sau (Preview)" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                    <CheckBox x:Name="chkSbMusic" Tag="music_offtopic" Click="OnSponsorCategoryChanged">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <Border Width="16" Height="16" Background="Pink" CornerRadius="3"/>
+                                            <TextBlock Text="Không phải nhạc (Offtopic)" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                    <CheckBox x:Name="chkSbFiller" Tag="filler" Click="OnSponsorCategoryChanged">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <Border Width="16" Height="16" Background="Yellow" CornerRadius="3"/>
+                                            <TextBlock Text="Nội dung đệm (Filler)" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                </StackPanel>
+                            </Expander>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE7F4;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Màn hình xuất (LED Output)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <TextBlock Text="Chọn màn hình đích:" Foreground="#D0D0D0" FontSize="12" Margin="0,0,0,5"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="cboMonitorOutput" Grid.Column="0" HorizontalAlignment="Stretch" SelectionChanged="cboMonitorOutput_SelectionChanged" PlaceholderText="Đang tìm màn hình...">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,4">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <FontIcon Glyph="&#xE7F4;" FontSize="12" Margin="0,1,8,0" Foreground="{StaticResource AccentBrush}"/>
+                                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="White" FontSize="13"/>
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding ResolutionDisplay}" FontSize="11" Foreground="Gray" Margin="20,2,0,0"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <Button x:Name="btnRefreshMonitors" Click="btnRefreshMonitors_Click" Grid.Column="1" Margin="10,0,0,0" Background="#333333" BorderThickness="0" ToolTipService.ToolTip="Quét lại thiết bị hiển thị">
+                                    <FontIcon Glyph="&#xE72C;" FontSize="16" Foreground="White"/>
+                                </Button>
+                            </Grid>
+                            <TextBlock x:Name="txtMonitorStatus" Text="Đang kiểm tra kết nối..." Foreground="Gray" FontSize="11" FontStyle="Italic" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE916;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Cài đặt Bước tua" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <TextBlock Text="Thời gian tua (Seek Step):" Foreground="#D0D0D0" FontSize="12" Margin="0,0,0,5"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Slider x:Name="sliderSeekSetting" Grid.Column="0" Minimum="1" Maximum="10" StepFrequency="1" Value="5" ValueChanged="sliderSeekSetting_ValueChanged" VerticalAlignment="Center"/>
+                                <Border Grid.Column="1" Background="{StaticResource AccentBrush}" CornerRadius="4" Width="40" Height="24" Margin="10,0,0,0">
+                                    <TextBlock x:Name="txtSeekValue" Text="5s" Foreground="White" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </Grid>
+                            <TextBlock Text="Kéo thanh trượt để chỉnh số giây khi bấm nút Tua đi/Tua lại." Foreground="Gray" FontSize="11" FontStyle="Italic" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xEC4A;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Tốc độ phát (Playback Speed)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <TextBlock Text="Điều chỉnh tốc độ:" Foreground="#D0D0D0" FontSize="12" Margin="0,0,0,5"/>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Slider x:Name="sliderSpeedSetting" Grid.Column="0" Minimum="0.25" Maximum="2.0" StepFrequency="0.05" Value="1.0" ValueChanged="sliderSpeedSetting_ValueChanged" VerticalAlignment="Center"/>
+                                <Border Grid.Column="1" Background="#333333" CornerRadius="4" Width="55" Height="28" Margin="10,0,0,0">
+                                    <TextBlock x:Name="txtSpeedValue" Text="1.00x" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <Button x:Name="btnResetSpeed" Click="btnResetSpeed_Click" Grid.Column="2" Background="Transparent" BorderThickness="0" Margin="5,0,0,0" ToolTipService.ToolTip="Về mặc định (1.0x)">
+                                    <FontIcon Glyph="&#xE777;" FontSize="16" Foreground="Gray"/>
+                                </Button>
+                            </Grid>
+                            <TextBlock Text="Chọn nhanh:" Foreground="Gray" FontSize="10" Margin="0,0,0,5"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="0.5x" Click="btnSpeedPreset_Click" Tag="0.5" FontSize="11" Padding="8,4" Background="#333333" BorderThickness="0" Foreground="White" MinWidth="45"/>
+                                <Button Content="1.0x" Click="btnSpeedPreset_Click" Tag="1.0" FontSize="11" Padding="8,4" Background="{StaticResource AccentBrush}" BorderThickness="0" Foreground="White" FontWeight="Bold" MinWidth="45"/>
+                                <Button Content="1.5x" Click="btnSpeedPreset_Click" Tag="1.5" FontSize="11" Padding="8,4" Background="#333333" BorderThickness="0" Foreground="White" MinWidth="45"/>
+                                <Button Content="2.0x" Click="btnSpeedPreset_Click" Tag="2.0" FontSize="11" Padding="8,4" Background="#333333" BorderThickness="0" Foreground="White" MinWidth="45"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xe838;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Thư viện (LIBRARY)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <TextBlock Text="Tự động quét và hiển thị file từ thư mục này vào Tab Thư viện (LIBRARY):" Foreground="#D0D0D0" FontSize="12" Margin="0,0,0,5"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="txtWatchFolder" Grid.Column="0" IsReadOnly="True" PlaceholderText="Chưa chọn thư mục..." FontSize="12"/>
+                                <Button Click="btnSelectWatchFolder_Click" Grid.Column="1" Margin="5,0,0,0" ToolTipService.ToolTip="Chọn thư mục">
+                                    <FontIcon Glyph="&#xE8E5;" FontSize="16"/>
+                                </Button>
+                                <Button Click="btnRefreshLibrary_Click" Grid.Column="2" Margin="5,0,0,0" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Quét lại ngay">
+                                    <FontIcon Glyph="&#xE72C;" FontSize="16" Foreground="{StaticResource AccentBrush}"/>
+                                </Button>
+                            </Grid>
+                            <TextBlock x:Name="txtLibraryStatus" Text="Trạng thái: Chưa quét." Foreground="Gray" FontSize="11" FontStyle="Italic" Margin="0,5,0,0"/>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xEB9F;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Hình nền chờ (Idle Background)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="txtBgPath" Grid.Column="0" IsReadOnly="True" PlaceholderText="Chưa chọn ảnh..." FontSize="12"/>
+                                <Button x:Name="btnBrowseBg" Click="btnBrowseBg_Click" Grid.Column="1" Margin="5,0,0,0" ToolTipService.ToolTip="Chọn ảnh từ máy">
+                                    <FontIcon Glyph="&#xE8E5;" FontSize="16"/>
+                                </Button>
+                                <Button x:Name="btnClearBg" Click="btnClearBg_Click" Grid.Column="2" Margin="5,0,0,0" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Gỡ bỏ ảnh nền">
+                                    <FontIcon Glyph="&#xE74D;" FontSize="16" Foreground="#FF5555"/>
+                                </Button>
+                            </Grid>
+                            <TextBlock Text="Hỗ trợ: JPG, PNG, BMP. Hiển thị trên cả màn hình LED." Foreground="Gray" FontSize="10" FontStyle="Italic" Margin="0,5,0,0"/>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander x:Name="grpSubSettings" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xe190;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Phụ đề (Subtitles)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <Grid RowSpacing="15">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Text="Cỡ chữ:" VerticalAlignment="Center" Foreground="Gray" Grid.Row="0" Grid.Column="0"/>
+                                <Slider x:Name="sldSubSize" Grid.Row="0" Grid.Column="1" Minimum="20" Maximum="100" Value="55" ValueChanged="sldSub_ValueChanged"/>
+
+                                <TextBlock Text="Vị trí (Đáy):" VerticalAlignment="Center" Foreground="Gray" Grid.Row="1" Grid.Column="0"/>
+                                <Slider x:Name="sldSubMargin" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="200" Value="50" ValueChanged="sldSub_ValueChanged"/>
+
+                                <TextBlock Text="Màu chữ:" VerticalAlignment="Center" Foreground="Gray" Grid.Row="2" Grid.Column="0"/>
+                                <ComboBox x:Name="cboSubColor" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" SelectionChanged="cboSubColor_SelectionChanged" SelectedIndex="0">
+                                    <ComboBoxItem Content="Trắng (White)" Tag="FFFFFF"/>
+                                    <ComboBoxItem Content="Vàng (Yellow)" Tag="FFFF00"/>
+                                    <ComboBoxItem Content="Xanh (Cyan)" Tag="00FFFF"/>
+                                    <ComboBoxItem Content="Đỏ (Red)" Tag="FF0000"/>
+                                </ComboBox>
+
+                                <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3">
+                                    <TextBlock Text="Độ trễ (Delay):" Foreground="Gray" Margin="0,0,0,5"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Slider x:Name="sldSubDelay" Grid.Column="0" Minimum="-5" Maximum="5" StepFrequency="0.1" Value="0" ValueChanged="sldSubDelay_ValueChanged"/>
+                                        <TextBlock x:Name="lblSubDelay" Grid.Column="1" Text="0s" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" Margin="10,0,10,0" Width="40" TextAlignment="Right"/>
+                                        <Button x:Name="btnResetSubDelay" Click="btnResetSubDelay_Click" Grid.Column="2" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Đặt lại (0s)">
+                                            <FontIcon Glyph="&#xE777;" FontSize="14" Foreground="Gray"/>
+                                        </Button>
+                                    </Grid>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE995;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Bộ chỉnh âm (Equalizer &amp; Sync)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <StackPanel Margin="0,0,0,15">
+                                <TextBlock Text="Đồng bộ tiếng (Audio Sync):" Foreground="Gray" Margin="0,0,0,5"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="sldAudioDelay" Grid.Column="0" Minimum="-5" Maximum="5" StepFrequency="0.1" Value="0" ValueChanged="sldAudioDelay_ValueChanged"/>
+                                    <TextBlock x:Name="lblAudioDelay" Grid.Column="1" Text="0s" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" Margin="10,0,10,0" Width="40" TextAlignment="Right"/>
+                                    <Button x:Name="btnResetAudioDelay" Click="btnResetAudioDelay_Click" Grid.Column="2" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Đặt lại (0s)">
+                                        <FontIcon Glyph="&#xE777;" FontSize="14" Foreground="Gray"/>
+                                    </Button>
+                                </Grid>
+                            </StackPanel>
+
+                            <Grid Margin="0,0,0,15">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Chế độ:" VerticalAlignment="Center" Foreground="Gray" Margin="0,0,10,0"/>
+                                <ComboBox x:Name="cboEqPresets" Grid.Column="1" HorizontalAlignment="Stretch" SelectionChanged="cboEqPresets_SelectionChanged" SelectedIndex="0">
+                                    <ComboBoxItem Content="Mặc định (Flat)" Tag="Flat"/>
+                                    <ComboBoxItem Content="Rock (Mạnh mẽ)"/>
+                                    <ComboBoxItem Content="Pop (Giọng hát)"/>
+                                    <ComboBoxItem Content="Classic (Cổ điển)"/>
+                                    <ComboBoxItem Content="Dance/Club"/>
+                                    <ComboBoxItem Content="Bass Boost"/>
+                                    <ComboBoxItem Content="Treble Boost"/>
+                                    <ComboBoxItem Content="-- Tùy chỉnh (Custom) --" Tag="Custom"/>
+                                </ComboBox>
+                            </Grid>
+
+                            <Grid HorizontalAlignment="Center" Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="50"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                                    <Slider x:Name="sldEq1" Orientation="Vertical" Height="120" Minimum="-50" Maximum="50" Value="0" Tag="0" ValueChanged="sldEq_ValueChanged"/>
+                                    <TextBlock Text="Low" FontSize="10" Foreground="Gray" Margin="0,5,0,0" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                                    <Slider x:Name="sldEq2" Orientation="Vertical" Height="120" Minimum="-50" Maximum="50" Value="0" Tag="1" ValueChanged="sldEq_ValueChanged"/>
+                                    <TextBlock Text="M-Low" FontSize="10" Foreground="Gray" Margin="0,5,0,0" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                                    <Slider x:Name="sldEq3" Orientation="Vertical" Height="120" Minimum="-50" Maximum="50" Value="0" Tag="2" ValueChanged="sldEq_ValueChanged"/>
+                                    <TextBlock Text="Mid" FontSize="10" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,5,0,0" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="3" HorizontalAlignment="Center">
+                                    <Slider x:Name="sldEq4" Orientation="Vertical" Height="120" Minimum="-50" Maximum="50" Value="0" Tag="3" ValueChanged="sldEq_ValueChanged"/>
+                                    <TextBlock Text="M-High" FontSize="10" Foreground="Gray" Margin="0,5,0,0" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4" HorizontalAlignment="Center">
+                                    <Slider x:Name="sldEq5" Orientation="Vertical" Height="120" Minimum="-50" Maximum="50" Value="0" Tag="4" ValueChanged="sldEq_ValueChanged"/>
+                                    <TextBlock Text="High" FontSize="10" Foreground="Gray" Margin="0,5,0,0" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Text="CẢNH BÁO: Mức ±50dB rất lớn, coi chừng vỡ tiếng!" Foreground="#FF5555" FontStyle="Italic" FontSize="10" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE7AD;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Hiển thị &amp; Bố cục (Layout)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center" Margin="0,0,0,15">
+                                <Button Click="btnRotate_Click" Width="80" Height="60" Background="#333333" BorderThickness="0" CornerRadius="4" ToolTipService.ToolTip="Xoay 90 độ">
+                                    <StackPanel>
+                                        <FontIcon Glyph="&#xE7AD;" FontSize="24" Margin="0,0,0,5"/>
+                                        <TextBlock Text="Xoay" FontSize="11"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Click="btnFlipH_Click" Width="80" Height="60" Background="#333333" BorderThickness="0" CornerRadius="4" ToolTipService.ToolTip="Lật ngang">
+                                    <StackPanel>
+                                        <FontIcon Glyph="&#xE8AB;" FontSize="24" Margin="0,0,0,5"/>
+                                        <TextBlock Text="Lật Ngang" FontSize="11"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Click="btnFlipV_Click" Width="80" Height="60" Background="#333333" BorderThickness="0" CornerRadius="4" ToolTipService.ToolTip="Lật dọc">
+                                    <StackPanel>
+                                        <FontIcon Glyph="&#xe8cb;" FontSize="24" Margin="0,0,0,5"/>
+                                        <TextBlock Text="Lật Dọc" FontSize="11"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+
+                            <Rectangle Height="1" Fill="#333333" Margin="0,0,0,15"/>
+
+                            <Grid Margin="0,0,0,15">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Chế độ khung hình:" VerticalAlignment="Center" Foreground="Gray" Margin="0,0,10,0"/>
+                                <ComboBox x:Name="cboViewMode" Grid.Column="1" HorizontalAlignment="Stretch" SelectionChanged="cboViewMode_SelectionChanged" SelectedIndex="0">
+                                    <ComboBoxItem Content="Vừa khít (Fit) - Mặc định" Tag="Fit"/>
+                                    <ComboBoxItem Content="Lấp đầy (Fill / Crop) - Mất viền" Tag="Fill"/>
+                                    <ComboBoxItem Content="Kéo giãn (Stretch) - Méo hình" Tag="Stretch"/>
+                                    <ComboBoxItem Content="Nguyên bản (1:1) - Pixel thực" Tag="Original"/>
+                                </ComboBox>
+                            </Grid>
+
+                            <StackPanel>
+                                <Grid Margin="0,0,0,5">
+                                    <TextBlock Text="Phóng to (Zoom):" FontSize="11" Foreground="Gray"/>
+                                    <TextBlock x:Name="lblZoomLevel" Text="100%" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="sldZoom" Grid.Column="0" Minimum="0" Maximum="3" StepFrequency="0.1" Value="0" ValueChanged="sldZoom_ValueChanged"/>
+                                    <Button Click="btnResetZoom_Click" Grid.Column="1" Margin="10,0,0,0" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Đặt lại Zoom">
+                                        <FontIcon Glyph="&#xE777;" FontSize="14" Foreground="Gray"/>
+                                    </Button>
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE790;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Hiệu chỉnh màu sắc (Color Grading)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <StackPanel Spacing="15">
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="Cơ bản (Basic)" Foreground="Gray" FontSize="11" FontWeight="Bold" Margin="0,0,0,5"/>
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,2">
+                                            <TextBlock Text="Độ sáng (Brightness)" FontSize="11" Foreground="White"/>
+                                            <TextBlock x:Name="lblBright" Text="0" FontSize="11" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Slider x:Name="sldBright" Minimum="-100" Maximum="100" Value="0" ValueChanged="sldVideoColor_ValueChanged" Tag="brightness"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,2">
+                                            <TextBlock Text="Tương phản (Contrast)" FontSize="11" Foreground="White"/>
+                                            <TextBlock x:Name="lblContrast" Text="0" FontSize="11" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Slider x:Name="sldContrast" Minimum="-100" Maximum="100" Value="0" ValueChanged="sldVideoColor_ValueChanged" Tag="contrast"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,2">
+                                            <TextBlock Text="Đậm nhạt (Saturation)" FontSize="11" Foreground="White"/>
+                                            <TextBlock x:Name="lblSat" Text="0" FontSize="11" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Slider x:Name="sldSat" Minimum="-100" Maximum="100" Value="0" ValueChanged="sldVideoColor_ValueChanged" Tag="saturation"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,2">
+                                            <TextBlock Text="Màu sắc (Hue)" FontSize="11" Foreground="White"/>
+                                            <TextBlock x:Name="lblHue" Text="0" FontSize="11" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Slider x:Name="sldHue" Minimum="-100" Maximum="100" Value="0" ValueChanged="sldVideoColor_ValueChanged" Tag="hue"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <Rectangle Height="1" Fill="#333333"/>
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="Nâng cao (RGB &amp; Gamma)" Foreground="Gray" FontSize="11" FontWeight="Bold" Margin="0,0,0,5"/>
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,2">
+                                            <TextBlock Text="Gamma (Midtones)" FontSize="11" Foreground="White"/>
+                                            <TextBlock x:Name="lblGamma" Text="0" FontSize="11" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Slider x:Name="sldGamma" Minimum="-50" Maximum="50" Value="0" ValueChanged="sldAdvancedColor_ValueChanged" Tag="gamma"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,2">
+                                            <TextBlock Text="Kênh Đỏ (Red)" FontSize="11" Foreground="#FF5555"/>
+                                            <TextBlock x:Name="lblRed" Text="0" FontSize="11" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Slider x:Name="sldRed" Minimum="-50" Maximum="50" Value="0" ValueChanged="sldAdvancedColor_ValueChanged" Tag="red"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,2">
+                                            <TextBlock Text="Kênh Xanh (Green)" FontSize="11" Foreground="#55FF55"/>
+                                            <TextBlock x:Name="lblGreen" Text="0" FontSize="11" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Slider x:Name="sldGreen" Minimum="-50" Maximum="50" Value="0" ValueChanged="sldAdvancedColor_ValueChanged" Tag="green"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,2">
+                                            <TextBlock Text="Kênh Lam (Blue)" FontSize="11" Foreground="#5555FF"/>
+                                            <TextBlock x:Name="lblBlue" Text="0" FontSize="11" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Slider x:Name="sldBlue" Minimum="-50" Maximum="50" Value="0" ValueChanged="sldAdvancedColor_ValueChanged" Tag="blue"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                            <Button Content="Đặt lại tất cả (Reset All)" Click="btnResetAdvanced_Click" HorizontalAlignment="Right" Margin="0,15,0,0" FontSize="11"/>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE793;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Bộ lọc hiệu ứng (Smart Filters)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <Grid RowSpacing="15">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Màu sắc (Color):" VerticalAlignment="Center" Foreground="Gray" Grid.Row="0" Grid.Column="0"/>
+                                <ComboBox x:Name="cboColorFx" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" SelectionChanged="cboColorFx_SelectionChanged" SelectedIndex="0">
+                                    <ComboBoxItem Content="Không (Mặc định)" Tag="None"/>
+                                    <ComboBoxItem Content="Đen trắng (B&amp;W)" Tag="Gray"/>
+                                    <ComboBoxItem Content="Hoài cổ (Sepia)" Tag="Sepia"/>
+                                    <ComboBoxItem Content="Âm bản (Negative)" Tag="Negative"/>
+                                    <ComboBoxItem Content="Tone Ấm (Warm)" Tag="Warm"/>
+                                    <ComboBoxItem Content="Tone Lạnh (Cold)" Tag="Cold"/>
+                                    <ComboBoxItem Content="Dưới nước (Underwater)" Tag="Underwater"/>
+                                    <ComboBoxItem Content="Nhiễu sóng (Old TV)" Tag="OldTV"/>
+                                    <ComboBoxItem Content="Pixelate (8-bit)" Tag="Pixelate"/>
+                                </ComboBox>
+                                <TextBlock Text="Làm mờ (Blur):" VerticalAlignment="Center" Foreground="Gray" Grid.Row="1" Grid.Column="0"/>
+                                <Grid Grid.Row="1" Grid.Column="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="30"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="sldBlur" Maximum="20" StepFrequency="1" ValueChanged="sldBlur_ValueChanged"/>
+                                    <FontIcon Glyph="&#xE722;" Grid.Column="1" FontSize="14" Foreground="Gray" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Vertical" Spacing="10">
+                                    <TextBlock Text="Hiệu ứng phủ (Overlay):" Foreground="Gray" Margin="0,5,0,0"/>
+                                    <StackPanel Orientation="Vertical" Spacing="12" Margin="10,0,0,0">
+                                        <CheckBox x:Name="chkVignette" Content="Tối góc (Vignette)" Checked="chkFx_Changed" Unchecked="chkFx_Changed" Tag="vig"/>
+                                        <CheckBox x:Name="chkGrain" Content="Hạt phim (Film Grain)" Checked="chkFx_Changed" Unchecked="chkFx_Changed" Tag="grain"/>
+                                        <CheckBox x:Name="chkTechnicolor" Content="Màu Technicolor (Đỏ rực)" Checked="chkFx_Changed" Unchecked="chkFx_Changed" Tag="technicolor"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <Expander Grid.Row="3" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#333333" Margin="0,10,0,0">
+                                    <Expander.Header>
+                                        <TextBlock Text="Nâng cao: Nhập lệnh FFmpeg thủ công" FontSize="11" FontStyle="Italic"/>
+                                    </Expander.Header>
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="txtFfmpegFilter" PlaceholderText="VD: noise=alls=20..." FontFamily="Consolas" FontSize="12"/>
+                                        <Button x:Name="btnApplyFilter" Click="btnApplyFilter_Click" Grid.Column="1" Margin="10,0,0,0" Content="Áp dụng" FontSize="11"/>
+                                    </Grid>
+                                </Expander>
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE714;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Xử lý Hình ảnh chuyên sâu (Pro)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <StackPanel Spacing="15">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleSwitch x:Name="swMotion" Grid.Column="0" Toggled="swMotion_Toggled" OnContent="" OffContent="" MinWidth="0" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Margin="15,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Motion Boost (60fps)" Foreground="White" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Giả lập chuyển động mượt mà (Interpolation)." Foreground="Gray" FontSize="11"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleSwitch x:Name="swHdr" Grid.Column="0" Toggled="swPostProc_Toggled" Tag="hdr" OnContent="" OffContent="" MinWidth="0" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Margin="15,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="HDR → SDR (Tone Mapping)" Foreground="White" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Giữ đúng màu khi xem video HDR." Foreground="Gray" FontSize="11"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleSwitch x:Name="swUpscale" Grid.Column="0" Toggled="swPostProc_Toggled" Tag="upscale" OnContent="" OffContent="" MinWidth="0" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Margin="15,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="AI Upscale (High Quality)" Foreground="White" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Phóng to sắc nét (Tốn GPU)." Foreground="Gray" FontSize="11"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleSwitch x:Name="swDeband" Grid.Column="0" Toggled="swPostProc_Toggled" Tag="deband" OnContent="" OffContent="" MinWidth="0" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Margin="15,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Debanding (Khử loang)" Foreground="White" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Xóa hiện tượng vệt màu, gãy màu." Foreground="Gray" FontSize="11"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleSwitch x:Name="swDeinterlace" Grid.Column="0" Toggled="swPostProc_Toggled" Tag="deinterlace" OnContent="" OffContent="" MinWidth="0" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Margin="15,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Deinterlace (Khử sọc)" Foreground="White" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Dùng cho TV cũ bị sọc ngang." Foreground="Gray" FontSize="11"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleSwitch x:Name="swShader" Grid.Column="0" Toggled="swPostProc_Toggled" Tag="shader" OnContent="" OffContent="" MinWidth="0" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Margin="15,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Custom Shader (Nét cạnh)" Foreground="White" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Tăng độ chi tiết cạnh (Sharpen)." Foreground="Gray" FontSize="11"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                            <Rectangle Height="1" Fill="#333333" Margin="0,15,0,15"/>
+                            <StackPanel Spacing="15">
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="15"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Bottom">
+                                        <TextBlock Text="Auto ICC" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                                        <ToggleSwitch x:Name="swIccProfile" OnContent="" OffContent="" IsOn="True" Toggled="ColorMan_Changed" MinWidth="0" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Bottom">
+                                        <TextBlock Text="Chuẩn màu (Gamut)" Foreground="Gray" FontSize="11" HorizontalAlignment="Right" Margin="0,0,0,5"/>
+                                        <ComboBox x:Name="cboTargetPrim" HorizontalAlignment="Stretch" SelectionChanged="ColorMan_Changed" SelectedIndex="0">
+                                            <ComboBoxItem Content="Auto (Tự động)" Tag="auto"/>
+                                            <ComboBoxItem Content="sRGB (Web/Standard)" Tag="bt.709"/>
+                                            <ComboBoxItem Content="DCI-P3 (Điện ảnh/Rạp)" Tag="dci-p3"/>
+                                            <ComboBoxItem Content="BT.2020 (HDR Wide)" Tag="bt.2020"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Grid>
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,5">
+                                        <TextBlock Text="Độ nét (Sharpen Strength)" Foreground="White" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="lblSharpenVal" Text="0.0" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="sldSharpen" Minimum="0" Maximum="5" StepFrequency="0.1" ValueChanged="sldPro_ValueChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,5">
+                                        <TextBlock Text="Khử nhiễu (Denoise Level)" Foreground="White" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="lblDenoiseVal" Text="0%" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="sldDenoise" Minimum="0" Maximum="100" StepFrequency="1" ValueChanged="sldPro_ValueChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE770;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Hệ thống (System)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <Grid RowSpacing="5">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <ToggleSwitch x:Name="swStartup" Grid.Row="0" Header="Khởi động cùng Windows" OnContent="Bật" OffContent="Tắt" Toggled="swStartup_Toggled"/>
+                                <ToggleSwitch x:Name="swWakeLock" Grid.Row="3" Header="Luôn sáng màn hình" OnContent="Màn hình không bao giờ tắt khi mở App" OffContent="Theo cài đặt Windows" Toggled="swWakeLock_Toggled"/>
+
+                                <StackPanel Grid.Row="4" Margin="0,0,0,0">
+                                    <TextBlock Text="Liên kết tập tin (File Association):" Foreground="Orange" Margin="0,0,0,5"/>
+                                    <Button 
+    Content="⚙ Mở cài đặt Mặc định (Default Apps)" Background="DarkRed"
+    Click="btnRegisterAssoc_Click" 
+    HorizontalAlignment="Stretch" />
+                                    <TextBlock Text="Bấm nút trên -> Tìm và chọn MediaLed -> Chọn 'Set default' (Đặt mặc định)." FontSize="10" FontStyle="Italic" Foreground="Gray" Margin="0,5,0,10" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Grid>
+                            <Grid RowSpacing="20">
+                                <Button x:Name="btnFactoryReset" Background="#33FF0000" BorderBrush="Red" BorderThickness="0" HorizontalAlignment="Stretch">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <FontIcon Glyph="&#xE777;" Foreground="Yellow"/>
+                                        <TextBlock Text="KHÔI PHỤC CÀI ĐẶT GỐC" Foreground="Yellow" FontWeight="Bold"/>
+                                    </StackPanel>
+                                    <Button.Flyout>
+                                        <Flyout Placement="Top" ShowMode="Transient">
+                                            <Flyout.FlyoutPresenterStyle>
+                                                <Style TargetType="FlyoutPresenter">
+                                                    <Setter Property="Padding" Value="15"/>
+                                                    <Setter Property="Background" Value="#252525"/>
+                                                    <Setter Property="BorderBrush" Value="#444444"/>
+                                                    <Setter Property="CornerRadius" Value="8"/>
+                                                </Style>
+                                            </Flyout.FlyoutPresenterStyle>
+                                            <StackPanel Width="280" Spacing="12">
+                                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                                    <FontIcon Glyph="&#xE7BA;" Foreground="Yellow" FontSize="20"/>
+                                                    <TextBlock Text="CẢNH BÁO !" FontSize="16" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                                <Rectangle Height="1" Fill="#444444"/>
+                                                <TextBlock Text="Hành động này sẽ xóa toàn bộ lịch sử, cài đặt và đưa ứng dụng về trạng thái ban đầu. Không thể hoàn tác." TextWrapping="Wrap" Foreground="#CCCCCC" FontSize="13"/>
+                                                <Grid Margin="0,5,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="10"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Button Grid.Column="0" Content="Hủy bỏ" Click="btnCancelReset_Click" HorizontalAlignment="Stretch" Background="Transparent" BorderThickness="1" BorderBrush="#555555"/>
+                                                    <Button Grid.Column="2" Content="Xác nhận Xóa" Click="btnConfirmReset_Click" HorizontalAlignment="Stretch" Background="Red" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+                                                </Grid>
+                                            </StackPanel>
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="0">
+                                <FontIcon Glyph="&#xE72E;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="  Thay đổi YouTube Data API V3" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <StackPanel Spacing="20">
+                                <StackPanel>
+                                    <TextBlock Text="YouTube API Keys:" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                    <TextBlock Text="Mỗi dòng 1 Key. Tự động xoay vòng." FontSize="11" Foreground="Gray" Margin="0,0,0,0"/>
+                                    <TextBlock Text="Lưu ý: Key API mặc định sẽ bị khóa bất cứ lúc nào khi có nhiều người sử dụng." FontSize="11" Foreground="red" Margin="0,0,0,0"/>
+                                    <TextBlock Text="           Hãy tự lấy key của riêng bạn để thay thế nhé ! 😉" FontSize="11" Foreground="red" Margin="0,0,0,5"/>
+                                    <Button Content="📂 Mở file YouTube.txt" Click="btnEditYtKey_Click" HorizontalAlignment="Stretch" Background="#333333"/>
+                                    <Rectangle Height="1" Fill="#333333" Margin="0,5"/>
+                                    <Button Click="btnReloadKeys_Click" HorizontalAlignment="Stretch" Background="{StaticResource AccentBrush}" BorderThickness="0">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon Glyph="&#xE72C;" Foreground="White"/>
+                                            <TextBlock Text="Cập nhật danh sách Key mới" FontWeight="Bold" Foreground="White"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+
+                            </StackPanel>
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </ScrollViewer>
+            <ScrollViewer x:Name="grpInfo" Grid.Row="1" Visibility="Collapsed" Padding="15,0,15,0">
+                <StackPanel Spacing="10" Margin="0,10,0,0">
+
+                    <StackPanel Background="#252525" Padding="20" CornerRadius="8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Width="80" Height="80" CornerRadius="8" Margin="0,0,20,0">
+                                <Image Source="ms-appx:///Assets/app_icon.gif" Stretch="Uniform" Width="80" Height="80" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="MediaLed Interface" FontSize="26" FontWeight="Bold" Foreground="Orange"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,5,0,10" Spacing="10">
+                                    <Border Background="{StaticResource AccentBrush}" CornerRadius="4" Padding="6,2">
+                                        <TextBlock Text="PRO MEDIA PLAYER" Foreground="White" FontSize="10" FontWeight="Bold"/>
+                                    </Border>
+                                    <TextBlock Text="Version 1.5.221225 (Build 2025)" Foreground="BlueViolet" VerticalAlignment="Center" FontSize="12"/>
+                                </StackPanel>
+                                <TextBlock Text="Tác giả: Tạ Quang Hiếu" FontSize="18" FontWeight="SemiBold" Foreground="red"/>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                                    <FontIcon Glyph="&#xE78C;" FontSize="12" Foreground="LimeGreen" Margin="0,1,6,0"/>
+                                    <TextBlock Text="Dự án Mã nguồn mở &amp; Miễn phí (Free &amp; Open Source)" Foreground="LimeGreen" FontSize="12" FontStyle="Italic"/>
+                                </StackPanel>
+
+                                <TextBlock Text="Liên hệ: failure.to.success.x@gmail.com" FontSize="12" Foreground="Orange" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE967;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Yêu cầu hệ thống (System Requirements)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <Grid RowSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Hệ điều hành:" Foreground="Gray"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="Windows 10/Windows 11 (64 bit)" Foreground="White"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="CPU / RAM:" Foreground="Gray"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="Core i3 Gen 3+ / 4GB RAM (Khuyên dùng 16GB)" Foreground="White"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Đồ họa (GPU):" Foreground="Gray"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="Intel HD Graphics 3000 trở lên " Foreground="White"/>
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xebd3;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Phần mềm cần cài thêm (Dependencies)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <Grid RowSpacing="15">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <FontIcon Grid.Row="0" Glyph="&#xE73E;" FontSize="12" Foreground="LimeGreen" Margin="0,5,10,0" VerticalAlignment="Top"/>
+                                <StackPanel Grid.Row="0" Grid.Column="1">
+                                    <TextBlock Text="K-Lite Codec Pack (Mega)" Foreground="White" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Cần thiết để hiện đày đủ Thumbnails Media Local" Foreground="Gray" FontSize="11"/>
+                                    <HyperlinkButton Content="⬇ Tải xuống (CodecGuide.com)" NavigateUri="https://www.codecguide.com/download_k-lite_codec_pack_mega.htm" Padding="0" Margin="0,2,0,0" FontSize="11" Foreground="{StaticResource AccentBrush}"/>
+                                </StackPanel>
+
+                                <FontIcon Grid.Row="1" Glyph="&#xE73E;" FontSize="12" Foreground="LimeGreen" Margin="0,5,10,0" VerticalAlignment="Top"/>
+                                <StackPanel Grid.Row="1" Grid.Column="1">
+                                    <TextBlock Text="Visual C++ Redist 2015-2022 (x64)" Foreground="White" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Thư viện nền tảng để chạy App và MPV." Foreground="Gray" FontSize="11"/>
+                                    <HyperlinkButton Content="⬇ Tải từ Microsoft (Link trực tiếp)" NavigateUri="https://aka.ms/vs/17/release/vc_redist.x64.exe" Padding="0" Margin="0,2,0,0" FontSize="11" Foreground="{StaticResource AccentBrush}"/>
+                                </StackPanel>
+
+                                <FontIcon Grid.Row="2" Glyph="&#xE73E;" FontSize="12" Foreground="LimeGreen" Margin="0,5,10,0" VerticalAlignment="Top"/>
+                                <StackPanel Grid.Row="2" Grid.Column="1">
+                                    <TextBlock Text="Font: Segoe Fluent Icons" Foreground="White" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Windows 10 cần cài để hiện đúng icon (Windows 11 đã có)." Foreground="red" FontSize="11" FontStyle="Italic"/>
+                                    <HyperlinkButton Content="⬇ Tải Font (Microsoft.com)" NavigateUri="https://aka.ms/SegoeFluentIcons" Padding="0" Margin="0,2,0,0" FontSize="11" Foreground="{StaticResource AccentBrush}"/>
+                                </StackPanel>
+                                <FontIcon Grid.Row="3" Glyph="&#xE721;" FontSize="12" Foreground="Cyan" Margin="0,5,10,0" VerticalAlignment="Top"/>
+                                <StackPanel Grid.Row="3" Grid.Column="1">
+
+                                    <TextBlock Text="Windows Search Service" Foreground="White" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Sử dụng dữ liệu có sẵn của Windows." Foreground="Gray" FontSize="11"/>
+
+                                    <HyperlinkButton Content="⚙ Mở Indexing Options" 
+                     Click="btnOpenIndexing_Click" 
+                     Padding="0" Margin="0,2,0,5" FontSize="11" 
+                     Foreground="{StaticResource AccentBrush}"/>
+
+                                    <Border Background="#2A2A2A" CornerRadius="4" Padding="8" Margin="0,0,10,0" BorderBrush="#333333" BorderThickness="1">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="> Cách để phần mềm tìm thấy file:" FontSize="11" FontWeight="Bold" Foreground="#FFD700"/>
+                                            <TextBlock Text="1. Bấm link ⚙ Mở Indexing Options -> Chọn nút 'Modify' (Sửa đổi)." FontSize="11" Foreground="#D0D0D0"/>
+                                            <TextBlock Text="2. Tích chọn (✓) các ổ đĩa/thư mục." FontSize="11" Foreground="#D0D0D0"/>
+                                            <TextBlock Text="3. Bấm OK. Đợi Windows nạp dữ liệu (Indexing)." FontSize="11" Foreground="#D0D0D0"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE74C;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Công nghệ lõi (Core Technologies)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <TextBlock Text="• Microsoft WinUI 3 - Giao diện đồ họa thế hệ mới (Native)." Foreground="#D0D0D0" Margin="0,0,0,4"/>
+                            <TextBlock Text="• LibMpv / FFmpeg - Engine xử lý tín hiệu Video &amp; Audio." Foreground="#D0D0D0" Margin="0,0,0,4"/>
+                            <TextBlock Text="• System.Text.Json - Xử lý dữ liệu cấu trúc tốc độ cao." Foreground="#D0D0D0" Margin="0,0,0,4"/>
+                            <TextBlock Text="• DWM Thumbnail API - Kỹ thuật soi gương (Preview) không độ trễ." Foreground="#D0D0D0" Margin="0,0,0,4"/>
+                            <TextBlock Text="• SponsorBlock &amp; yt-dlp - Tích hợp AI bỏ qua quảng cáo." Foreground="#D0D0D0" Margin="0,0,0,4"/>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE735;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Tính năng nổi bật (Highlights)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <TextBlock Text="★ Multi-Monitor LED Mapping: Xuất hình ra màn hình LED độc lập." Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock Text="★ SponsorBlock AI: Tự động bỏ qua quảng cáo trong video." Foreground="#D0D0D0" Margin="0,0,0,4"/>
+                            <TextBlock Text="★ Trình Media Player chuyên nghiệp (video Local/Online/IPTV)." Foreground="#D0D0D0" Margin="0,0,0,4"/>
+                            <TextBlock Text="★ Realtime VFX: Hiệu ứng lớp phủ, chỉnh màu, lật xoay trực tiếp." Foreground="#D0D0D0" Margin="0,0,0,4"/>
+                            <TextBlock Text="★ Windows Search Service Tìm kiếm file nội bộ cực nhanh." Foreground="#D0D0D0" Margin="0,0,0,4"/>
+                            <TextBlock Text="★ Tìm kiếm nhanh Youtube/Dailymotion bằng API siêu nhanh." Foreground="#D0D0D0" Margin="0,0,0,4"/>
+                            <TextBlock Text="★ Tải Video/Stream dẽ dàng." Foreground="#D0D0D0" Margin="0,0,0,4"/>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xe81e;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Dữ liệu &amp; API (Credits)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0">
+                            <TextBlock Text="Phần mềm sử dụng các nguồn dữ liệu công khai:" Foreground="Gray" FontSize="12" Margin="0,0,0,10"/>
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="• YouTube Data API v3" Foreground="#D0D0D0"/>
+                                <TextBlock Text="• Dailymotion Developer API" Foreground="#D0D0D0"/>
+                                <TextBlock Text="• SponsorBlock DB" Foreground="#D0D0D0"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Expander>
+
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE765;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Phím tắt nhanh (Hotkeys)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Padding="0,10,0,0" Spacing="12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#333333" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" MinWidth="70">
+                                    <TextBlock Text="Space" FontWeight="Bold" FontSize="11" Foreground="White" HorizontalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Phát / Tạm dừng" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#333333" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" MinWidth="70">
+                                    <TextBlock Text="S" FontWeight="Bold" FontSize="11" Foreground="White" HorizontalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Dừng phát (Stop)" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#333333" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" MinWidth="70">
+                                    <TextBlock Text="← / →" FontWeight="Bold" FontSize="11" Foreground="White" HorizontalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Tua lại / Tua đi (x giây)" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#333333" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" MinWidth="70">
+                                    <TextBlock Text="Alt + ← / →" FontWeight="Bold" FontSize="11" Foreground="White" HorizontalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Bài trước / Bài sau" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#333333" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" MinWidth="70">
+                                    <TextBlock Text="↑ / ↓" FontWeight="Bold" FontSize="11" Foreground="White" HorizontalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Tăng / Giảm âm lượng" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#333333" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" MinWidth="70">
+                                    <TextBlock Text="M" FontWeight="Bold" FontSize="11" Foreground="White" HorizontalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Bật / Tắt tiếng (Mute)" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#333333" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" MinWidth="70">
+                                    <TextBlock Text="F11" FontWeight="Bold" FontSize="11" Foreground="White" HorizontalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Bật / Tắt màn hình Phụ (Studio Mode)" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#333333" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" MinWidth="70">
+                                    <TextBlock Text="Alt + Enter" FontWeight="Bold" FontSize="11" Foreground="White" HorizontalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Phóng to màn hình (Zoom)" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#333333" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" MinWidth="70">
+                                    <TextBlock Text="Esc" FontWeight="Bold" FontSize="11" Foreground="White" HorizontalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Thoát toàn màn hình (Player Mode)" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#333333" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" MinWidth="70">
+                                    <TextBlock Text="H" FontWeight="Bold" FontSize="11" Foreground="White" HorizontalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Ẩn / Hiện thanh điều khiển" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#333333" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" MinWidth="70">
+                                    <TextBlock Text="P" FontWeight="Bold" FontSize="11" Foreground="White" HorizontalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Tắt phụ đề (Subtitle Off)" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
+
+
+                    <Expander x:Name="expMediaInfo" IsExpanded="True" 
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" 
+                              Background="#252525" CornerRadius="8" Margin="0,0,0,20">
+
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE946;" FontSize="18" Foreground="#FF8C00"/>
+                                <TextBlock Text="Thông tin File đang phát (Media Info)" FontSize="14" FontWeight="Bold" Foreground="#FF8C00"/>
+                            </StackPanel>
+                        </Expander.Header>
+
+                        <StackPanel Padding="10" Spacing="5">
+                            <StackPanel Margin="0,0,0,10">
+                                <TextBlock Text="Tên tập tin:" Foreground="Gray" Margin="0,0,0,4"/>
+                                <TextBlock x:Name="infFileName" Text="---" Foreground="LimeGreen" FontWeight="Bold" FontSize="14" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Grid RowSpacing="5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Độ phân giải:" Foreground="Gray"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" x:Name="infResolution" Text="---" Foreground="White"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Khung hình (FPS):" Foreground="Gray"/>
+                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="5">
+                                    <FontIcon Glyph="&#xE916;" FontSize="12" Foreground="Yellow"/>
+                                    <TextBlock x:Name="infFps" Text="---" Foreground="Yellow" FontWeight="Bold"/>
+                                </StackPanel>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Video Codec:" Foreground="Gray"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" x:Name="infVideoCodec" Text="---" Foreground="White"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Audio Codec:" Foreground="Gray"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" x:Name="infAudioCodec" Text="---" Foreground="White"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Dung lượng:" Foreground="Gray"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" x:Name="infBitrate" Text="---" Foreground="White"/>
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="Thời lượng:" Foreground="Gray"/>
+                                <TextBlock Grid.Row="5" Grid.Column="1" x:Name="infDuration" Text="---" Foreground="{StaticResource AccentBrush}" FontWeight="Bold"/>
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
+
+                </StackPanel>
+            </ScrollViewer>
+            <ScrollViewer x:Name="grpEffects" Grid.Row="1" Visibility="Collapsed" Padding="15,0,15,0">
+                <StackPanel Spacing="15" Margin="0,10,0,0">
+
+                    <StackPanel Background="#252525" Padding="15" CornerRadius="8">
+
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <ToggleSwitch x:Name="swLogo" Grid.Column="0" Toggled="swLogo_Toggled" OnContent="" OffContent="" IsOn="False" MinWidth="0" Margin="0,0,0,0" VerticalAlignment="Center"/>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <TextBlock Text="Logo (Watermark)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel x:Name="pnlLogoControls" Visibility="Collapsed" Spacing="10">
+
+                            <TextBlock Text="Danh sách &amp; Thao tác:" FontSize="11" Foreground="Gray" FontWeight="Bold"/>
+
+                            <Grid ColumnSpacing="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Button x:Name="btnAddMoreLogo" Click="btnAddMoreLogo_Click" Grid.Column="0" HorizontalAlignment="Stretch" Background="#333333" BorderThickness="0">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE710;" FontSize="12"/>
+                                        <TextBlock Text="Thêm"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button x:Name="btnApplyLogo" Click="btnApplyLogo_Click" Grid.Column="1" HorizontalAlignment="Stretch" Background="{StaticResource AccentBrush}" BorderThickness="0">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE72C;" FontSize="12" Foreground="White"/>
+                                        <TextBlock Text="Cập nhật" FontWeight="Bold" Foreground="White"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+
+                            <TextBlock Text="Hướng dẫn: Click vào logo trên màn hình thiết kế để chọn. Kéo góc để chỉnh cỡ. Chuột phải để xóa." Foreground="Gray" FontSize="10" FontStyle="Italic" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                        </StackPanel>
+
+                        <TextBox x:Name="txtLogoPath" Visibility="Collapsed"/>
+                    </StackPanel>
+
+                    <StackPanel Background="#252525" Padding="15" CornerRadius="8">
+
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <ToggleSwitch x:Name="swTicker" Grid.Column="0" 
+                              Toggled="swTicker_Toggled" 
+                              OnContent="" OffContent="" 
+                              IsOn="False" 
+                              MinWidth="0" 
+                              Margin="0,0,0,0" 
+                              VerticalAlignment="Center"/>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <TextBlock Text="Chữ chạy (Ticker)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel x:Name="pnlTickerControls" Visibility="Collapsed" Spacing="15">
+
+
+                            <TextBlock Text="Nội dung hiển thị:" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,5"/>
+
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBox x:Name="txtTickerInput" Grid.Row="0"
+                             TextChanged="txtTickerInput_TextChanged" 
+                             PlaceholderText="Nhập thông báo..." 
+                             AcceptsReturn="True" TextWrapping="Wrap" 
+                             Height="80" FontSize="14" Padding="10" 
+                             BorderThickness="0" Background="#333333"/>
+
+                                <Button x:Name="btnApplyTicker" Click="btnApplyTicker_Click" Grid.Row="1" 
+                            HorizontalAlignment="Right" Margin="0,10,0,0"
+                            Background="{StaticResource AccentBrush}" BorderThickness="0" CornerRadius="4" Height="34">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE73E;" FontSize="14" Foreground="White"/>
+                                        <TextBlock Text="Áp dụng ngay" FontWeight="Bold" Foreground="White" FontSize="12"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                            <StackPanel>
+                                <Grid Margin="0,0,0,5">
+                                    <TextBlock Text="Tốc độ chạy:" Foreground="Gray"/>
+                                    <TextBlock Text="{Binding ElementName=sldTickerSpeed, Path=Value}" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Slider x:Name="sldTickerSpeed" Minimum="1" Maximum="100" Value="50"/>
+                            </StackPanel>
+
+                            <StackPanel>
+                                <TextBlock Text="Thời điểm xuất hiện:" Foreground="Gray" Margin="0,0,0,8"/>
+                                <RadioButtons x:Name="radTickerTime" SelectedIndex="0" MaxColumns="2" SelectionChanged="radTickerTime_SelectionChanged">
+                                    <RadioButton Content="Ngay bây giờ" Tag="Current"/>
+                                    <RadioButton Content="Hẹn giờ" Tag="Custom"/>
+                                </RadioButtons>
+
+                                <StackPanel x:Name="stkTimerInputs" Orientation="Horizontal" Spacing="5" Margin="0,10,0,0" Visibility="Collapsed">
+                                    <TextBox x:Name="txtH" Text="00" Width="40" MaxLength="2" FontSize="12" HorizontalContentAlignment="Center"/>
+                                    <TextBlock Text=":" VerticalAlignment="Center" Foreground="Gray"/>
+                                    <TextBox x:Name="txtM" Text="00" Width="40" MaxLength="2" FontSize="12" HorizontalContentAlignment="Center"/>
+                                    <TextBlock Text=":" VerticalAlignment="Center" Foreground="Gray"/>
+                                    <TextBox x:Name="txtS" Text="00" Width="40" MaxLength="2" FontSize="12" HorizontalContentAlignment="Center"/>
+
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="Kiểu chữ &amp; Hiển thị:" Foreground="White" FontSize="13" />
+
+                                <ComboBox x:Name="cboTickerFont" SelectionChanged="OnTickerSettingChanged"
+          HorizontalAlignment="Stretch" 
+          PlaceholderText="Nhập tên Font..." 
+          ToolTipService.ToolTip="Gõ để tìm kiếm font"
+          IsEditable="True"
+          IsTextSearchEnabled="False"
+          MaxDropDownHeight="50"
+          
+          ScrollViewer.HorizontalScrollBarVisibility="Visible" 
+          ScrollViewer.HorizontalScrollMode="Enabled" 
+          ScrollViewer.VerticalScrollBarVisibility="Auto"
+          
+          KeyUp="cboTickerFont_KeyUp">
+
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <ToolTipService.ToolTip>
+                                                    <ToolTip Content="{Binding}"/>
+                                                </ToolTipService.ToolTip>
+
+                                                <TextBlock Text="{Binding}" 
+                                           FontFamily="{Binding}" 
+                                           FontSize="11" 
+                                           VerticalAlignment="Center"
+                                           TextWrapping="NoWrap"
+                                           MaxWidth="250"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <NumberBox x:Name="nbFontSize" ValueChanged="OnTickerSettingChanged" Grid.Column="0" Value="60" Minimum="10" Maximum="300" 
+                                   SpinButtonPlacementMode="Inline" 
+                                   Header="Cỡ chữ (px):"
+                                   Margin="0,0,10,0"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Bottom" Margin="0,0,0,2">
+                                        <ToggleButton x:Name="btnBold" Click="OnTickerSettingChanged" Content="B" FontWeight="Bold" Width="40" Height="32" ToolTipService.ToolTip="In đậm"/>
+                                        <ToggleButton x:Name="btnItalic" Click="OnTickerSettingChanged" Content="I" FontStyle="Italic" FontFamily="Serif" Width="40" Height="32" ToolTipService.ToolTip="In nghiêng"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Rectangle Height="1" Fill="#333333" Margin="0,5"/>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Text="Lặp lại (0 = Vô hạn):" VerticalAlignment="Center" Foreground="Gray"/>
+
+                                    <NumberBox x:Name="nbLoopCount" Grid.Column="1" Value="0" Minimum="0" Maximum="999" 
+                                   SpinButtonPlacementMode="Inline" 
+                                   Width="150"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <StackPanel Spacing="10">
+                                <ToggleSwitch x:Name="swTickerBg" Toggled="OnTickerSettingChanged" Header="Hiển thị Nền" OnContent="Bật" OffContent="Tắt" IsOn="True"/>
+                                <CheckBox x:Name="chkFullWidth" Click="OnTickerSettingChanged" Content="Kéo dài nền vô tận" IsChecked="True" IsEnabled="{x:Bind swTickerBg.IsOn, Mode=OneWay}" Margin="0,-5,0,0" FontSize="12"/>
+                                <TextBlock Text="Độ dày Nền:" Foreground="Gray" FontSize="11"/>
+                                <Slider x:Name="sldTickerBgSize" Minimum="0" Maximum="20" Value="5" ValueChanged="OnTickerSettingChanged"/>
+
+                                <Grid ColumnSpacing="10" Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <DropDownButton Grid.Column="0" HorizontalAlignment="Stretch">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <Border x:Name="rectTextPreview" Width="20" Height="20" Background="White" BorderBrush="Gray" BorderThickness="1"/>
+                                            <TextBlock Text="Màu Chữ" FontSize="12"/>
+                                        </StackPanel>
+                                        <DropDownButton.Flyout>
+                                            <Flyout Placement="Bottom">
+                                                <ColorPicker x:Name="cpTextColor" Color="White" IsColorSpectrumVisible="True" IsHexInputVisible="True" ColorChanged="cpTextColor_ColorChanged"/>
+                                            </Flyout>
+                                        </DropDownButton.Flyout>
+                                    </DropDownButton>
+
+                                    <DropDownButton Grid.Column="1" HorizontalAlignment="Stretch">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <Border x:Name="rectBgPreview" Width="20" Height="20" Background="Red" BorderBrush="Gray" BorderThickness="1"/>
+                                            <TextBlock Text="Màu Nền" FontSize="12"/>
+                                        </StackPanel>
+                                        <DropDownButton.Flyout>
+                                            <Flyout Placement="Bottom">
+                                                <ColorPicker x:Name="cpBgColor" Color="Red" IsColorSpectrumVisible="True" IsHexInputVisible="True" IsAlphaEnabled="True" ColorChanged="cpBgColor_ColorChanged"/>
+                                            </Flyout>
+                                        </DropDownButton.Flyout>
+                                    </DropDownButton>
+                                </Grid>
+                            </StackPanel>
+
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Grid x:Name="grpInlineInput" Grid.Row="2" Visibility="Collapsed" Background="#2B2B2B" BorderBrush="#333333" BorderThickness="0,1,0,0" Padding="10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock x:Name="lblInlinePrompt" Text="Nhập liên kết (Link):" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,6"/>
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="txtInlineUrl" PlaceholderText="https://..." FontSize="12" VerticalAlignment="Center" KeyDown="txtInlineUrl_KeyDown"/>
+                    <Button x:Name="btnInlineAdd" Click="btnInlineAdd_Click" Grid.Column="1" Margin="6,0,0,0" Background="{StaticResource AccentBrush}" BorderThickness="0" Height="32" Width="36" ToolTipService.ToolTip="Thêm ngay">
+                        <FontIcon Glyph="&#xE73E;" Foreground="White" FontSize="14"/>
+                    </Button>
+                    <Button x:Name="btnInlineCancel" Click="btnInlineCancel_Click" Grid.Column="2" Margin="4,0,0,0" Background="Transparent" BorderThickness="1" BorderBrush="#444444" Height="32" Width="36" ToolTipService.ToolTip="Hủy bỏ">
+                        <FontIcon Glyph="&#xE711;" Foreground="#AAAAAA" FontSize="14"/>
+                    </Button>
+                </Grid>
+            </Grid>
+
+            <Border x:Name="grpBottomActions" Grid.Row="3" BorderBrush="#333333" BorderThickness="0,1,0,0" Padding="15">
+                <Grid RowSpacing="15">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel x:Name="grpSearchPagination" Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="15" Visibility="Collapsed">
+                        <Button x:Name="btnSearchPrev" Click="btnSearchPrev_Click" Background="Transparent" BorderThickness="1" BorderBrush="#444444" Height="36" Width="40" ToolTipService.ToolTip="Trang trước">
+                            <FontIcon Glyph="&#xE72B;" FontSize="12"/>
+                        </Button>
+
+                        <TextBlock x:Name="txtSearchPageInfo" Text="Trang 1" VerticalAlignment="Center" Foreground="#DDDDDD" FontSize="12" FontWeight="Bold"/>
+
+                        <Button x:Name="btnSearchNext" Click="btnSearchNext_Click" Background="Transparent" BorderThickness="1" BorderBrush="#444444" Height="36" Width="40" ToolTipService.ToolTip="Trang sau">
+                            <FontIcon Glyph="&#xE72A;" FontSize="12"/>
+                        </Button>
+                    </StackPanel>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Button x:Name="btnAdd" Click="btnAdd_Click" Grid.Column="0" Background="#333333" Height="36" BorderThickness="0" HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <FontIcon Glyph="&#xE710;" FontSize="12" Margin="0,0,8,0"/>
+                                <TextBlock Text="Thêm"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="btnDelete" Click="btnDelete_Click" Grid.Column="2" Background="Transparent" BorderBrush="#444444" BorderThickness="1" Height="36" HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <FontIcon Glyph="&#xE74D;" FontSize="12" Margin="0,0,8,0"/>
+                                <TextBlock Text="Xoá"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Grid>
+            </Border>
+
+        </Grid>
+
+        <Rectangle Grid.Column="2" 
+           Fill="{StaticResource SurfaceBrush}" 
+           PointerEntered="GridSplitter_PointerEntered" 
+           PointerExited="GridSplitter_PointerExited" 
+           PointerPressed="GridSplitter_PointerPressed" 
+           PointerMoved="GridSplitter_PointerMoved" 
+           PointerReleased="GridSplitter_PointerReleased"/>
+
+        <Grid Grid.Column="3" Background="#101010" x:Name="PlayerContainer">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="32" x:Name="RowTitleBar"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto" x:Name="RowControls"/>
+            </Grid.RowDefinitions>
+            <Grid Grid.Row="0" Background="Transparent"/>
+
+            <Grid Grid.Row="1" Background="#050505" Canvas.ZIndex="1">
+                <Grid.Clip>
+                    <RectangleGeometry Rect="0,0,10000,10000"/>
+                </Grid.Clip>
+
+                <Grid x:Name="pnlPreview" SizeChanged="PnlPreview_SizeChanged" Background="Black" Canvas.ZIndex="1"/>
+
+                <Viewbox x:Name="DesignSurface" Stretch="Uniform" Visibility="Collapsed">
+                    <Grid x:Name="DesignGrid" Width="1920" Height="1080" Background="#252525" Loaded="DesignGrid_Loaded">
+
+                        <Canvas x:Name="GridPatternCanvas" IsHitTestVisible="False"/>
+
+                        <Rectangle Height="1" VerticalAlignment="Center" Fill="#00FFFF" Opacity="0.3" IsHitTestVisible="False"/>
+                        <Rectangle Width="1" HorizontalAlignment="Center" Fill="#00FFFF" Opacity="0.3" IsHitTestVisible="False"/>
+
+                        <TextBlock Text="DESIGN MODE" Foreground="#303030" FontSize="120" FontWeight="Bold" 
+                   HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+
+                        <Canvas x:Name="OverlayCanvas" Background="Transparent" Width="1920" Height="1080">
+
+                            <Grid x:Name="DraggableText" Canvas.Left="0" Canvas.Top="900" Width="1920" Visibility="Collapsed"
+                  PointerPressed="Element_PointerPressed" PointerMoved="Element_PointerMoved" PointerReleased="Element_PointerReleased">
+
+                                <Border x:Name="borderTickerBg" Background="#CC000000" Padding="20">
+
+                                    <TextBlock x:Name="txtTickerPreview" 
+                               Text="NỘI DUNG DEMO..." 
+                               Foreground="White" 
+                               FontSize="50" 
+                               FontWeight="Bold" 
+                               FontFamily="Arial"
+                               VerticalAlignment="Center" 
+                               Margin="0,-10,0,0"/>
+                                </Border>
+                            </Grid>
+                        </Canvas>
+                    </Grid>
+                </Viewbox>
+            </Grid>
+
+            <Grid Grid.Row="2" x:Name="AreaControls" Background="#181818" BorderBrush="#333333" BorderThickness="0,1,0,0" Height="100">
+                <Grid.RenderTransform>
+                    <TranslateTransform x:Name="ControlsTranslateTransform" Y="0"/>
+                </Grid.RenderTransform>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="20,0,20,0" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock x:Name="txtCurrentTime" Grid.Column="0" 
+                               Text="00:00"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
+                               Foreground="Gray"
+                               Margin="0,0,15,0"/>
+
+                    <Grid Grid.Column="1" VerticalAlignment="Center" Margin="10,0">
+                        <ProgressBar x:Name="prgBuffer" 
+                                     Minimum="0" Maximum="100" Value="0" 
+                                     VerticalAlignment="Center" 
+                                     HorizontalAlignment="Stretch"
+                                     Height="2" 
+                                     Background="Transparent"
+                                     Foreground="DarkRed" 
+                                     IsHitTestVisible="False"
+                                     Margin="0,0,0,0"/>
+
+                        <Grid VerticalAlignment="Center">
+                            <Slider x:Name="timelineSlider" 
+                                    Minimum="0" 
+                                    Maximum="100" 
+                                    VerticalAlignment="Center" 
+                                    Foreground="{StaticResource AccentBrush}"
+                                    Background="#40FFFFFF"
+                                    IsThumbToolTipEnabled="False"
+                                    ValueChanged="timelineSlider_ValueChanged"
+                                    PointerEntered="timelineSlider_PointerEntered"
+                                    PointerExited="timelineSlider_PointerExited"
+                                    PointerMoved="timelineSlider_PointerMoved">
+                                <Slider.Resources>
+                                    <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#FF8C00"/>
+                                    <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#FF8C00"/>
+
+                                    <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FF8C00"/>
+                                    <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#FF8C00"/>
+
+                                    <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#40FFFFFF"/>
+                                    <SolidColorBrush x:Key="SliderTrackFillPressed" Color="#40FFFFFF"/>
+                                </Slider.Resources>
+                                
+                            </Slider>
+
+                            <Canvas x:Name="cvsSponsor" 
+                                    VerticalAlignment="Center" 
+                                    Height="4" 
+                                    Margin="0,24,0,0" 
+                                    IsHitTestVisible="False"/>
+
+
+                            <Popup x:Name="popPreview" 
+                                   IsOpen="False" 
+                                   IsLightDismissEnabled="False" 
+                                   VerticalOffset="-45" 
+                                   ShouldConstrainToRootBounds="False">
+                                <Grid x:Name="grpPreviewBox" Width="60" Height="35" IsHitTestVisible="False">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Border Grid.Row="0" Background="#F0A500" BorderThickness="0" CornerRadius="4">
+                                        <TextBlock x:Name="txtSeekPreviewTime" 
+                                                   Text="00:00" 
+                                                   Foreground="White" 
+                                                   FontSize="11" 
+                                                   FontWeight="Bold" 
+                                                   HorizontalAlignment="Center" 
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+                                    <Path Grid.Row="1" Data="M 0,0 L 8,0 L 4,5 Z" Fill="#F0A500" HorizontalAlignment="Center" Margin="0,-1,0,0"/>
+                                </Grid>
+                            </Popup>
+
+                            <Popup x:Name="popSponsor" 
+       IsOpen="False" 
+       IsLightDismissEnabled="False" 
+       VerticalOffset="-75" 
+       ShouldConstrainToRootBounds="False">
+                                <Border Background="{StaticResource AccentBrush}" CornerRadius="4" Padding="8,4" BorderThickness="0">
+                                    <TextBlock x:Name="txtSponsorPreview" 
+                   Text="Sponsor" 
+                   Foreground="White" 
+                   FontSize="12" 
+                   FontWeight="Bold" 
+                   HorizontalAlignment="Center" 
+                   VerticalAlignment="Center"/>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </Grid>
+
+                    <TextBlock x:Name="txtTotalTime" 
+                               Grid.Column="2" 
+                               Text="00:00" 
+                               VerticalAlignment="Center" 
+                               HorizontalAlignment="Right" 
+                               Foreground="Gray"/>
+                </Grid>
+
+                <Grid Grid.Row="1" Margin="20,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="190"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="190"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="10" HorizontalAlignment="Left">
+                        <Button x:Name="btnToggleLed" Click="btnToggleLed_Click" Background="Transparent" BorderThickness="0" Padding="8">
+                            <FontIcon x:Name="iconLed" Glyph="&#xEC16;" FontSize="24" Foreground="Gray"/>
+                        </Button>
+                        <Button x:Name="btnQuickSettings" Click="btnQuickSettings_Click" Background="Transparent" BorderThickness="0" Width="40" Height="40" ToolTipService.ToolTip="Cài đặt nhanh">
+                            <FontIcon Glyph="&#xe9e9;" FontSize="18" Foreground="White"/>
+                        </Button>
+                        <ToggleButton x:Name="btnFullScreen" 
+                                      Click="btnFullScreen_Click" 
+                                      Background="Transparent" 
+                                      BorderThickness="0" 
+                                      Padding="8" 
+                                      Visibility="Collapsed"
+                                      IsTabStop="False">
+                            <FontIcon Glyph="&#xE740;" FontSize="20" Foreground="White"/>
+                        </ToggleButton>
+                        <ToggleButton x:Name="btnModeSwitch" Click="btnModeSwitch_Click" Background="Transparent" BorderThickness="0" Padding="5">
+                            <ToggleButton.Resources>
+                                <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent"/>
+                                <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="Transparent"/>
+                                <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="Transparent"/>
+                            </ToggleButton.Resources>
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <FontIcon x:Name="iconStudio" Glyph="&#xE7F4;" FontSize="16" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock x:Name="txtMode" Text="STUDIO" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </ToggleButton>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+                        <Button x:Name="btnStop" Click="btnStop_Click" Width="40" Height="40" Background="Transparent" BorderThickness="0">
+                            <FontIcon Glyph="&#xe25e;" FontSize="16" Foreground="White"/>
+                        </Button>
+
+                        <Button x:Name="btnPrev" Click="btnPrev_Click" Width="40" Height="40" Background="Transparent" BorderThickness="0">
+                            <FontIcon Glyph="&#xE622;" FontSize="16" Foreground="White"/>
+                        </Button>
+
+                        <Button x:Name="btnRewind" Click="btnRewind_Click" Width="40" Height="40" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Lùi 5 giây">
+                            <FontIcon Glyph="&#xe627;" FontSize="18" Foreground="White"/>
+                        </Button>
+
+                        <Grid>
+                            <Button x:Name="btnPlay" Click="btnPlay_Click" 
+                                    Width="64" Height="64" 
+                                    Background="Transparent" 
+                                    BorderThickness="0" 
+                                    Padding="0" 
+                                    Visibility="Visible">
+                                <FontIcon Glyph="&#xf5b0;" FontSize="35" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Button>
+
+                            <Button x:Name="btnPause" Click="btnPause_Click" 
+                                    Width="64" Height="64" 
+                                    Background="Transparent" 
+                                    BorderThickness="0" 
+                                    Padding="0" 
+                                    Visibility="Collapsed">
+                                <FontIcon Glyph="&#xf8ae;" FontSize="35" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Button>
+                        </Grid>
+
+                        <Button x:Name="btnForward" Click="btnForward_Click" Width="40" Height="40" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Tiến 5 giây">
+                            <FontIcon Glyph="&#xe628;" FontSize="18" Foreground="White"/>
+                        </Button>
+
+                        <Button x:Name="btnNext" Click="btnNext_Click" Width="40" Height="40" Background="Transparent" BorderThickness="0">
+                            <FontIcon Glyph="&#xE623;" FontSize="16" Foreground="White"/>
+                        </Button>
+
+                        <Button x:Name="btnModeCycle" Click="btnModeCycle_Click" Background="Transparent" BorderThickness="0" Width="40" Height="40">
+                            <FontIcon x:Name="iconCycle" Glyph="&#xF5E7;" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Spacing="5" HorizontalAlignment="Right">
+                        <Button x:Name="btnMute" Click="btnMute_Click" Background="Transparent" BorderThickness="0" Padding="8">
+                            <FontIcon x:Name="iconVolume" Glyph="&#xE767;" FontSize="25" Foreground="Orange"/>
+                        </Button>
+
+                        <Slider x:Name="sliderVolume"
+        Width="100" 
+        VerticalAlignment="Center" 
+        Value="80" 
+        Minimum="0"
+        Maximum="100"
+        IsThumbToolTipEnabled="True"
+        ValueChanged="sliderVolume_ValueChanged"
+        PointerWheelChanged="sliderVolume_PointerWheelChanged">
+
+                            <Slider.Resources>
+                                <SolidColorBrush x:Key="SliderTrackValueFill" Color="#FF8C00"/>
+                                <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#FF8C00"/>
+                                <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#FF8C00"/>
+
+                                <SolidColorBrush x:Key="SliderThumbBackground" Color="#FF8C00"/>
+                                <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FF8C00"/>
+                                <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#FF8C00"/>
+
+                                <SolidColorBrush x:Key="SliderThumbBorderBrushPointerOver" Color="#FF8C00"/>
+                                <SolidColorBrush x:Key="SliderThumbBorderBrushPressed" Color="#FF8C00"/>
+                            </Slider.Resources>
+                        </Slider>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <Grid Grid.Row="1" Grid.ColumnSpan="4" Background="#181818" BorderBrush="#333333" BorderThickness="0,1,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="15,0,0,0" Spacing="8">
+                <FontIcon x:Name="iconStatus" Glyph="&#xE946;" FontSize="12" FontFamily="Segoe Fluent Icons" Foreground="#0078D7"/>
+                <TextBlock x:Name="txtAppStatus" 
+                               Text="Sẵn sàng" 
+                               Foreground="#D0D0D0" 
+                               FontSize="14" 
+                               FontFamily="Segoe UI, Segoe Fluent Icons"
+                               TextTrimming="CharacterEllipsis" 
+                               MaxWidth="600"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,15,0">
+                <TextBlock x:Name="txtNetworkStatus" 
+                               Text="Đang khởi tạo mạng..." 
+                               Foreground="#FF6600" 
+                               FontSize="14" 
+                               FontFamily="Segoe UI Emoji, Segoe UI, Segoe Fluent Icons, Segoe MDL2 Assets"/>
+            </StackPanel>
+        </Grid>
+
+        <Popup x:Name="FullscreenPopup" IsOpen="False" IsLightDismissEnabled="False" ShouldConstrainToRootBounds="False">
+            <Grid x:Name="PopupContainer" Background="Transparent" />
+        </Popup>
+
+    </Grid>
+</Window>

@@ -1,0 +1,24 @@
+<Application
+    x:Class="MediaLedInterfaceNew.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:MediaLedInterfaceNew">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <local:BoolToVisibilityConverter x:Key="BoolToVis" IsInverted="False"/>
+            <local:BoolToVisibilityConverter x:Key="BoolToCollapse" IsInverted="True"/>
+
+            <SolidColorBrush x:Key="C_BG" Color="#121212" />
+            <SolidColorBrush x:Key="C_PANEL" Color="#202020" />
+            <SolidColorBrush x:Key="C_ACCENT" Color="#005AA0" />
+            <SolidColorBrush x:Key="C_LIVE" Color="#E74C3C" />
+            <SolidColorBrush x:Key="C_TEXT" Color="Gainsboro" />
+            <SolidColorBrush x:Key="C_PANEL_HOVER" Color="#323232" />
+
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
