@@ -118,6 +118,8 @@ namespace MediaLedInterfaceNew
             mpv_set_option_string(_mpvHandle, "gpu-context", "d3d11");
             mpv_set_option_string(_mpvHandle, "gpu-api", "d3d11");
             mpv_set_option_string(_mpvHandle, "hwdec", "auto-copy");
+            mpv_set_option_string(_mpvHandle, "ontop", "no");
+            mpv_set_option_string(_mpvHandle, "input-default-bindings", "yes");
             mpv_set_option_string(_mpvHandle, "hwdec-codecs", "all");
             mpv_set_option_string(_mpvHandle, "network-timeout", "20");
             mpv_set_option_string(_mpvHandle, "cache", "yes");

@@ -998,7 +998,7 @@ namespace MediaLedInterfaceNew
                 MoveWindow(_hostHwnd, r.left, r.top, width, height, true);
                 activePlayer.Resize(width, height);
                 ShowWindow(_hostHwnd, 5);
-                SetWindowPos(_hostHwnd, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002);
+                SetWindowPos(_hostHwnd, new IntPtr(-2), 0, 0, 0, 0, 0x0001 | 0x0002);
             }
             else
             {

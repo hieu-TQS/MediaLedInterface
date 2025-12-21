@@ -2409,36 +2409,33 @@ namespace MediaLedInterfaceNew
         {
             if (_appWindow == null) return;
             _isInternalFullscreen = !_isInternalFullscreen;
-
+            IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+            uint flags = 0x0002 | 0x0001 | 0x0010 | 0x0020;
             if (_isInternalFullscreen)
             {
                 AreaNav.Visibility = Visibility.Collapsed;
                 AreaSidebar.Visibility = Visibility.Collapsed;
                 AreaControls.Visibility = Visibility.Collapsed;
-
                 if (RowTitleBar != null) RowTitleBar.Height = new GridLength(0);
                 _appWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen);
-
-
+                SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags);
                 this.SystemBackdrop = null;
                 RootGrid.Background = new SolidColorBrush(Microsoft.UI.Colors.Black);
                 UpdateMpvLayout();
-
-                UpdateStatus("⛶ Fullscreen", false);
+                UpdateStatus("⛶ Fullscreen (Chế độ trình chiếu)", false);
             }
             else
             {
-
                 _appWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
+                SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags);
                 CloseFsWindow();
                 if (btnFullScreen != null) btnFullScreen.IsChecked = false;
                 AreaNav.Visibility = Visibility.Visible;
                 AreaSidebar.Visibility = Visibility.Visible;
                 AreaControls.Visibility = Visibility.Visible;
-
                 AreaNav.Width = _isNavExpanded ? 125 : 50;
                 ColSidebar.Width = new GridLength(300);
-
                 if (RowTitleBar != null) RowTitleBar.Height = new GridLength(32);
                 if (Microsoft.UI.Composition.SystemBackdrops.MicaController.IsSupported())
                 {
@@ -5682,17 +5679,20 @@ namespace MediaLedInterfaceNew
         {
             if (_isResizing)
             {
-                if (this.Content is UIElement rootElement)
+                try
                 {
-                    var point = e.GetCurrentPoint(rootElement).Position;
-                    double navWidth = AreaNav.ActualWidth;
-                    double newWidth = point.X - navWidth;
-                    if (newWidth > 200 && newWidth < 800)
+                    if (this.Content is UIElement rootElement)
                     {
-                        ColSidebar.Width = new GridLength(newWidth);
-                        UpdateMpvLayout();
+                        var point = e.GetCurrentPoint(rootElement).Position;
+                        double navWidth = AreaNav.ActualWidth;
+                        double newWidth = point.X - navWidth;
+                        if (newWidth > 200 && newWidth < 800)
+                        {
+                            ColSidebar.Width = new GridLength(newWidth);
+                        }
                     }
                 }
+                catch { }
             }
         }
 
