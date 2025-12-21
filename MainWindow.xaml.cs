@@ -3892,14 +3892,6 @@ namespace MediaLedInterfaceNew
 
         private void MainWindow_SizeChanged(object sender, WindowSizeChangedEventArgs e)
         {
-            long now = DateTime.Now.Ticks;
-
-            if (now - _lastResizeTicks > 150000)
-            {
-                UpdateMpvLayout();
-                _lastResizeTicks = now;
-            }
-
             if (_resizeDebounceTimer != null)
             {
                 _resizeDebounceTimer.Stop();
@@ -4586,16 +4578,26 @@ namespace MediaLedInterfaceNew
                         ? (FrameworkElement)DesignSurface
                         : (FrameworkElement)pnlPreview;
 
-                    if (targetElement == null || targetElement.ActualWidth <= 0) return;
+                    // --- THÊM KIỂM TRA IsLoaded ---
+                    if (targetElement == null || targetElement.ActualWidth <= 0 || !targetElement.IsLoaded) return;
 
                     var rootElement = this.Content as UIElement;
-                    var transform = targetElement.TransformToVisual(rootElement);
-                    var point = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
 
-                    x = (int)(point.X * scale);
-                    y = (int)(point.Y * scale);
-                    w = (int)(targetElement.ActualWidth * scale);
-                    h = (int)(targetElement.ActualHeight * scale);
+                    // TransformToVisual có thể gây lỗi nếu element đang biến mất, bọc try-catch riêng
+                    try
+                    {
+                        var transform = targetElement.TransformToVisual(rootElement);
+                        var point = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
+
+                        x = (int)(point.X * scale);
+                        y = (int)(point.Y * scale);
+                        w = (int)(targetElement.ActualWidth * scale);
+                        h = (int)(targetElement.ActualHeight * scale);
+                    }
+                    catch
+                    {
+                        return; // Nếu lỗi tính toán vị trí thì bỏ qua frame này
+                    }
                 }
 
                 if (w > 0 && h > 0)
@@ -4637,7 +4639,11 @@ namespace MediaLedInterfaceNew
         }
         private void PnlPreview_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            UpdateMpvLayout();
+            if (_resizeDebounceTimer != null)
+            {
+                _resizeDebounceTimer.Stop();
+                _resizeDebounceTimer.Start();
+            }
         }
         private async void btnAdd_Click(object sender, RoutedEventArgs e)
         {
