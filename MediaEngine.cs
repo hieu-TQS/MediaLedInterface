@@ -50,7 +50,7 @@ namespace MediaLedInterfaceNew
         [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
         [DllImport("user32.dll")] private static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint);
         [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
-
+        private const int WS_EX_NOACTIVATE = 0x08000000;
         [DllImport("user32.dll")] private static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr lprcClip, MonitorEnumProc lpfnEnum, IntPtr dwData);
         [DllImport("user32.dll", SetLastError = true)] private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
         [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr hWnd);
@@ -292,8 +292,7 @@ namespace MediaLedInterfaceNew
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         static extern bool EnumDisplayDevices(string lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
         public const int WS_VISIBLE = 0x10000000;
-        public const int WS_CLIPCHILDREN = 0x02000000;
-        public const int WS_EX_TOOLWINDOW = 0x00000080;
+
 
 
         [StructLayout(LayoutKind.Sequential)]
@@ -407,6 +406,8 @@ namespace MediaLedInterfaceNew
 
             return info;
         }
+        public const int WS_CLIPCHILDREN = 0x02000000;
+        public const int WS_EX_TOOLWINDOW = 0x00000080;
         public void SetPropertyString(string name, string value)
         {
             _playerA?.SetPropertyString(name, value);
@@ -592,7 +593,7 @@ namespace MediaLedInterfaceNew
             RegisterClass(ref wc);
 
             _hostHwnd = CreateWindowEx(
-                0,
+                WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
                 className,
                 "MediaLed Output Screen",
                 WS_POPUP | WS_VISIBLE | WS_CLIPCHILDREN,

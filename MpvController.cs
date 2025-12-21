@@ -114,6 +114,10 @@ namespace MediaLedInterfaceNew
             mpv_set_option_string(_mpvHandle, "msg-level", "all=warn,lavfi=debug");
             mpv_request_log_messages(_mpvHandle, "info");
             mpv_set_option_string(_mpvHandle, "wid", Handle.ToInt64().ToString());
+            mpv_set_option_string(_mpvHandle, "osc", "no");
+            mpv_set_option_string(_mpvHandle, "input-default-bindings", "no");
+            mpv_set_option_string(_mpvHandle, "input-vo-keyboard", "no");
+            mpv_set_option_string(_mpvHandle, "input-media-keys", "no");
             mpv_set_option_string(_mpvHandle, "vo", "gpu");
             mpv_set_option_string(_mpvHandle, "gpu-context", "d3d11");
             mpv_set_option_string(_mpvHandle, "gpu-api", "d3d11");

@@ -9,8 +9,8 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Win32;
-using NAudio.Dsp;  // Cần thiết để tính toán tần số (FFT)
-using NAudio.Wave; // Cần thiết để bắt âm thanh
+using NAudio.Dsp;
+using NAudio.Wave;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -4481,9 +4481,20 @@ namespace MediaLedInterfaceNew
             AppSettings.Save(SETTING_APP_MODE, newMode.ToString());
 
             RootGrid.UpdateLayout();
-            await Task.Delay(100);
-            pnlPreview.SizeChanged += PnlPreview_SizeChanged;
-            UpdateMpvLayout();
+            await Task.Delay(50); // Đợi UI render xong
+
+            // Ép buộc cập nhật vị trí video
+            if (newMode) // Nếu là Player Mode
+            {
+                // Gọi 2 lần để chắc chắn kích thước đã ăn khớp
+                UpdateMpvLayout();
+                await Task.Delay(50);
+                UpdateMpvLayout();
+            }
+            else
+            {
+                UpdateMpvLayout();
+            }
         }
         private void btnNavToggle_Click(object sender, RoutedEventArgs e)
         {
