@@ -580,8 +580,6 @@ namespace MediaLedInterfaceNew
             {
                 System.Diagnostics.Debug.WriteLine("Lỗi load icon: " + ex.Message);
             }
-            // ----------------------------
-
             WNDCLASS wc = new WNDCLASS
             {
                 lpszClassName = className,
@@ -591,16 +589,13 @@ namespace MediaLedInterfaceNew
             };
 
             RegisterClass(ref wc);
-
             _hostHwnd = CreateWindowEx(
                 WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
                 className,
                 "MediaLed Output Screen",
-                WS_POPUP | WS_VISIBLE | WS_CLIPCHILDREN,
+                WS_POPUP | WS_CLIPCHILDREN,
                 -20000, -20000, 1280, 720,
                 IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
-
-            ShowWindow(_hostHwnd, 5);
         }
         public void SetOpacity(byte alpha)
         {

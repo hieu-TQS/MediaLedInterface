@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Win32;
+using NAudio.CoreAudioApi;
 using NAudio.Dsp;
 using NAudio.Wave;
 using System;
@@ -41,6 +42,7 @@ using HttpRequestMessage = System.Net.Http.HttpRequestMessage;
 using TimeSpan = System.TimeSpan;
 using Type = System.Type;
 using Uri = System.Uri;
+
 namespace MediaLedInterfaceNew
 {
     public class MediaItem : INotifyPropertyChanged
@@ -108,6 +110,8 @@ namespace MediaLedInterfaceNew
         private List<MediaItem> _backupTv = new List<MediaItem>();
         private Random _rng = new Random();
         private MediaItem? _playingItem = null;
+        private string _currentAudioDeviceId = "";
+        private DispatcherTimer _audioDeviceCheckTimer;
         private Dictionary<int, string> _youtubePageTokens = new Dictionary<int, string>();
         public static Visibility IsVisibleIf(bool val) => val ? Visibility.Visible : Visibility.Collapsed;
         public static Visibility IsHiddenIf(bool val) => val ? Visibility.Collapsed : Visibility.Visible;
@@ -253,25 +257,28 @@ namespace MediaLedInterfaceNew
                 AddLogoToCanvas(file.Path);
             }
         }
-        private WasapiLoopbackCapture? _audioCapture; // Thiết bị bắt âm thanh
-        private const int FftLength = 1024; // Độ dài mẫu để phân tích (phải là lũy thừa của 2)
+        private WasapiLoopbackCapture? _audioCapture;
+        private const int FftLength = 1024;
         private float[] _fftBuffer = new float[FftLength];
         private int _fftPos = 0;
-        private double[] _lastLevels = new double[9]; // Lưu trạng thái cũ để làm mượt chuyển động
-                                                      // Các biến cho hiệu ứng Peak Hold
-        private double[] _currentPeaks = new double[9];  // Lưu độ cao hiện tại của vạch trắng
-        private int[] _peakHoldTimers = new int[9];      // Bộ đếm thời gian giữ đỉnh
-        private const int PEAK_HOLD_FRAMES = 20;         // Giữ đỉnh trong 10 khung hình (~150ms) trước khi rơi
-        private const double PEAK_DROP_SPEED = 0.5;      // Tốc độ rơi của vạch trắng (pixel/frame)
+        private double[] _lastLevels = new double[9];
+
+        private double[] _currentPeaks = new double[9];
+        private int[] _peakHoldTimers = new int[9];
+        private const int PEAK_HOLD_FRAMES = 20;
+        private const double PEAK_DROP_SPEED = 0.5;
         private void StartVisualizer()
         {
-            // Nếu đang chạy thì không start lại
             if (_audioCapture != null && _audioCapture.CaptureState == NAudio.CoreAudioApi.CaptureState.Capturing)
                 return;
 
             try
             {
-                // Khởi tạo thiết bị bắt âm thanh hệ thống (Loopback)
+                using (var enumerator = new MMDeviceEnumerator())
+                {
+                    var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                    _currentAudioDeviceId = defaultDevice.ID;
+                }
                 _audioCapture = new WasapiLoopbackCapture();
                 _audioCapture.DataAvailable += OnAudioDataAvailable;
                 _audioCapture.StartRecording();
@@ -283,7 +290,36 @@ namespace MediaLedInterfaceNew
                 System.Diagnostics.Debug.WriteLine("Lỗi khởi động Audio Viz: " + ex.Message);
             }
         }
+        private void CheckAudioDeviceChanged(object sender, object e)
+        {
+            try
+            {
+                bool shouldBeRunning = _engine != null && _engine.IsPlaying() && !_engine.IsPaused();
 
+                using (var enumerator = new MMDeviceEnumerator())
+                {
+                    var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                    string newDeviceId = defaultDevice.ID;
+                    if (_currentAudioDeviceId != newDeviceId)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Audio Device Changed: {newDeviceId}");
+
+                        if (_audioCapture != null && _audioCapture.CaptureState == NAudio.CoreAudioApi.CaptureState.Capturing)
+                        {
+                            StopVisualizer();
+                            StartVisualizer();
+                        }
+                        else if (shouldBeRunning)
+                        {
+                            StartVisualizer();
+                        }
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
         private void StopVisualizer()
         {
             if (_audioCapture != null)
@@ -2266,6 +2302,10 @@ namespace MediaLedInterfaceNew
                     System.Diagnostics.Debug.WriteLine("App đã chuyển màn hình -> Auto Refresh");
                 }
             };
+            _audioDeviceCheckTimer = new DispatcherTimer();
+            _audioDeviceCheckTimer.Interval = TimeSpan.FromSeconds(2); // Kiểm tra mỗi 2 giây
+            _audioDeviceCheckTimer.Tick += CheckAudioDeviceChanged;
+            _audioDeviceCheckTimer.Start();
             monitorCheckTimer.Start();
             _reconnectTimer = new DispatcherTimer();
             _reconnectTimer.Interval = TimeSpan.FromSeconds(3);
@@ -3780,11 +3820,11 @@ namespace MediaLedInterfaceNew
             }
             if (shouldShowViz)
             {
-                StartVisualizer(); // THAY THẾ code cũ: imgAudioViz.Visibility = Visibility.Visible;
+                StartVisualizer();
             }
             else
             {
-                StopVisualizer(); // THAY THẾ code cũ: imgAudioViz.Visibility = Visibility.Collapsed;
+                StopVisualizer();
             }
             if (isTvMode || isLiveStream)
             {
@@ -5149,7 +5189,7 @@ namespace MediaLedInterfaceNew
             bool isYtPlaylist = url.Contains("list=") || url.Contains("/playlist/") || url.Contains("/reels/") || url.Contains("tiktok.com/@");
             if (url.Contains("tiktok.com/@")) isYtPlaylist = true;
 
-            int maxItems = 30;
+            int maxItems = 50;
 
             UpdateStatus($"⏳ Đang phân tích: {url}...");
 
@@ -5339,12 +5379,9 @@ namespace MediaLedInterfaceNew
             btnPause.Visibility = Visibility.Collapsed;
             btnPlay.Visibility = Visibility.Visible;
 
-            // --- CODE MỚI: Ẩn ngay lập tức Visualizer ---
             StopVisualizer();
 
-            // Cập nhật icon Tab (như bạn đã làm OK)
             UpdatePlayingTabIndicator();
-            // ---------------------------------------------
 
             UpdateStatus("⏸ Đã tạm dừng.", true);
         }
@@ -5706,6 +5743,11 @@ namespace MediaLedInterfaceNew
                         if (newWidth > 200 && newWidth < 800)
                         {
                             ColSidebar.Width = new GridLength(newWidth);
+                            if (_resizeDebounceTimer != null)
+                            {
+                                _resizeDebounceTimer.Stop();
+                                _resizeDebounceTimer.Start();
+                            }
                         }
                     }
                 }
@@ -6034,12 +6076,24 @@ namespace MediaLedInterfaceNew
                                 {
                                     string title = node["title"]?.ToString();
                                     string thumbnail = node["thumbnail"]?.ToString();
-                                    double duration = node["duration"]?.GetValue<double>() ?? 0;
+
+                                    // --- SỬA ĐOẠN NÀY ---
+                                    // Lấy tên người đăng (uploader) thay vì lấy duration
+                                    string uploader = node["uploader"]?.ToString() ?? node["channel"]?.ToString();
 
                                     this.DispatcherQueue.TryEnqueue(() =>
                                     {
                                         if (!string.IsNullOrEmpty(title)) item.FileName = title;
-                                        if (duration > 0) item.Duration = TimeSpan.FromSeconds(duration).ToString(@"mm\:ss");
+
+                                        // Cập nhật lại Tên kênh vào vị trí Duration để hiển thị đồng bộ
+                                        if (!string.IsNullOrEmpty(uploader))
+                                        {
+                                            item.Duration = uploader;
+                                            item.ChannelName = uploader;
+                                        }
+
+                                        // (Đã xóa dòng cập nhật thời gian: item.Duration = TimeSpan...)
+
                                         if (!string.IsNullOrEmpty(thumbnail))
                                         {
                                             _ = Task.Run(async () =>

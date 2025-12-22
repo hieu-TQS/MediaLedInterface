@@ -25,7 +25,8 @@ namespace MediaLedInterfaceNew
 
         [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl)]
         private static extern int mpv_set_option_string(IntPtr mpvHandle, string name, string data);
-
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
         [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl)]
         private static extern void mpv_terminate_destroy(IntPtr mpvHandle);
         [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl)]
@@ -104,10 +105,11 @@ namespace MediaLedInterfaceNew
                 0,
                 className,
                 "MpvChild",
-                WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN,
+                WS_CHILD | WS_CLIPCHILDREN,
                 0, 0, 1280, 720,
                 parentHwnd,
                 IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+
             _mpvHandle = mpv_create();
             if (_mpvHandle == IntPtr.Zero) return;
             mpv_set_option_string(_mpvHandle, "log-file", "D:\\mpv_debug_log.txt");
@@ -134,7 +136,7 @@ namespace MediaLedInterfaceNew
             mpv_set_option_string(_mpvHandle, "video-unscaled", "downscale-big");
             mpv_set_option_string(_mpvHandle, "vd-lavc-software-fallback", "yes");
             mpv_set_option_string(_mpvHandle, "icc-profile-auto", "no");
-            mpv_set_option_string(_mpvHandle, "force-window", "yes");
+            mpv_set_option_string(_mpvHandle, "force-window", "no");
             mpv_set_option_string(_mpvHandle, "hr-seek", "yes");
             mpv_set_option_string(_mpvHandle, "hr-seek-framedrop", "yes");
             mpv_set_option_string(_mpvHandle, "image-display-duration", "inf");
@@ -146,10 +148,9 @@ namespace MediaLedInterfaceNew
             mpv_set_option_string(_mpvHandle, "sub-ass-override", "force");
             mpv_set_option_string(_mpvHandle, "sub-use-margins", "yes");
             mpv_set_option_string(_mpvHandle, "sub-ass-force-margins", "yes");
-
-            // 6. Khởi tạo (Chỉ gọi 1 lần sau khi đã set hết option)
             mpv_initialize(_mpvHandle);
             _lastOpacity = 255;
+            ShowWindow(Handle, 5);
         }
         public void ClearState()
         {

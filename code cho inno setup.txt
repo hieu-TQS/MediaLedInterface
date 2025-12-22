@@ -2,7 +2,7 @@
 
 ; 1. CÁC ĐỊNH NGHĨA TÊN (Đã điền sẵn)
 #define MyAppName "MediaLed Interface"
-#define MyAppVersion "1.1.231225"
+#define MyAppVersion "1.1.231225.2"
 #define MyAppPublisher "MediaLed Team"
 #define MyAppExeName "MediaLedInterface.exe"
 
