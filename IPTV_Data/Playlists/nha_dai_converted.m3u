@@ -59,9 +59,6 @@ http://iptv.nhadai.org/stream/htv1
 #EXTINF:-1 tvg-id="htv2-hd" tvg-logo="http://iptv.nhadai.org/img/htv2.png" group-title="",HTV2 HD
 http://iptv.nhadai.org/stream/htv2
 
-#EXTINF:-1 tvg-id="htv3-hd" tvg-logo="http://iptv.nhadai.org/img/htv3.png" group-title="",HTV3 HD
-http://iptv.nhadai.org/stream/htv3
-
 #EXTINF:-1 tvg-id="htv4-hd" tvg-logo="http://iptv.nhadai.org/img/htv4.png" group-title="",HTV4 HD
 http://iptv.nhadai.org/stream/htv4
 
@@ -70,7 +67,6 @@ http://iptv.nhadai.org/stream/htv7-hd
 
 #EXTINF:-1 tvg-id="htv9-hd" tvg-logo="http://iptv.nhadai.org/img/htv9-hd.png" group-title="",HTV9 HD
 http://iptv.nhadai.org/stream/htv9-hd
-
 
 #EXTINF:-1 tvg-id="htvc-the-thao" tvg-logo="http://iptv.nhadai.org/img/htvc-the-thao.png" group-title="",HTVC Thể Thao
 http://iptv.nhadai.org/stream/htvc-the-thao
@@ -165,7 +161,6 @@ http://iptv.nhadai.org/stream/da-nang-1
 #EXTINF:-1 tvg-id="da-nang-2" tvg-logo="http://iptv.nhadai.org/img/da-nang-2.png" group-title="", Đà Nẵng 2
 http://iptv.nhadai.org/stream/da-nang-2
 
-
 #EXTINF:-1 tvg-id="cao-bang" tvg-logo="http://iptv.nhadai.org/img/cao-bang.png" group-title="", Cao Bằng
 http://iptv.nhadai.org/stream/cao-bang
 
@@ -210,7 +205,6 @@ http://iptv.nhadai.org/stream/quang-ninh-1
 
 #EXTINF:-1 tvg-id="quang-ninh-3" tvg-logo="http://iptv.nhadai.org/img/quang-ninh-3.png" group-title="", Quảng Ninh 3
 http://iptv.nhadai.org/stream/quang-ninh-3
-
 
 #EXTINF:-1 tvg-id="lai-chau" tvg-logo="http://iptv.nhadai.org/img/lai-chau.png" group-title="", Lai Châu
 http://iptv.nhadai.org/stream/lai-chau

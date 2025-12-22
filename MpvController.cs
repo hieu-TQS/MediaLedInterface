@@ -102,13 +102,13 @@ namespace MediaLedInterfaceNew
             };
             RegisterClass(ref wc);
             Handle = CreateWindowEx(
-                0,
-                className,
-                "MpvChild",
-                WS_CHILD | WS_CLIPCHILDREN,
-                0, 0, 1280, 720,
-                parentHwnd,
-                IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+    0,
+    className,
+    "MpvChild",
+    WS_CHILD | WS_CLIPCHILDREN | WS_VISIBLE,
+    0, 0, 1280, 720,
+    parentHwnd,
+    IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
 
             _mpvHandle = mpv_create();
             if (_mpvHandle == IntPtr.Zero) return;
@@ -116,6 +116,9 @@ namespace MediaLedInterfaceNew
             mpv_set_option_string(_mpvHandle, "msg-level", "all=warn,lavfi=debug");
             mpv_request_log_messages(_mpvHandle, "info");
             mpv_set_option_string(_mpvHandle, "wid", Handle.ToInt64().ToString());
+            mpv_set_option_string(_mpvHandle, "force-window", "yes");
+            mpv_set_option_string(_mpvHandle, "background", "#000000");
+
             mpv_set_option_string(_mpvHandle, "osc", "no");
             mpv_set_option_string(_mpvHandle, "input-default-bindings", "no");
             mpv_set_option_string(_mpvHandle, "input-vo-keyboard", "no");
@@ -149,6 +152,7 @@ namespace MediaLedInterfaceNew
             mpv_set_option_string(_mpvHandle, "sub-use-margins", "yes");
             mpv_set_option_string(_mpvHandle, "sub-ass-force-margins", "yes");
             mpv_initialize(_mpvHandle);
+            ShowWindow(parentHwnd, 5);
             _lastOpacity = 255;
             ShowWindow(Handle, 5);
         }

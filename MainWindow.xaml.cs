@@ -863,8 +863,14 @@ namespace MediaLedInterfaceNew
                 string savedMode = AppSettings.Get(SETTING_APP_MODE);
                 bool isPlayerStart = savedMode == "True";
                 btnModeSwitch.IsChecked = isPlayerStart;
-                await _engine.SetMode(isPlayerStart);
-                UpdateModeUI(isPlayerStart);
+                if (isPlayerStart)
+                {
+                    // Đợi UI + window ổn định hoàn toàn
+                    await Task.Delay(300);
+
+                    await _engine.SetMode(true);
+                    UpdateModeUI(true);
+                }
                 UpdateMpvLayout();
             }
 

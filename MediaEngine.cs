@@ -481,7 +481,27 @@ namespace MediaLedInterfaceNew
 
             _playerA = new MpvController();
             _playerA.Initialize(_hostHwnd);
+            void SetupMpvDefaults(MpvController p)
+            {
+                // Tắt hoàn toàn giao diện điều khiển (nút play, thanh seek bar, logo mờ)
+                p.SetPropertyString("osc", "no");
 
+                // Tắt thông báo chữ to đùng trên màn hình (OSD) khi không cần thiết
+                p.SetPropertyString("osd-level", "0");
+
+                // Ép cửa sổ hiển thị ngay lập tức (màu đen) thay vì chờ load video
+                // Giúp tránh hiện tượng màn hình trong suốt hoặc hiện hình desktop
+                p.SetPropertyString("force-window", "immediate");
+
+                // Giữ player mở chứ không tắt ngấm khi hết video (tránh chớp tắt cửa sổ)
+                p.SetPropertyString("keep-open", "yes");
+
+                // Tắt các phím tắt và chuột mặc định của MPV để tránh xung đột click
+                p.SetPropertyString("input-default-bindings", "no");
+
+                // Đặt màu nền đen tuyệt đối (quan trọng)
+                p.SetPropertyString("background", "#000000");
+            }
             _playerB = new MpvController();
             _playerB.Initialize(_hostHwnd);
             void SetupSubStyle(MpvController p)
