@@ -55,12 +55,10 @@ namespace MediaLedInterfaceNew
         [DllImport("user32.dll")] private static extern IntPtr LoadCursor(IntPtr hInstance, int lpCursorName);
         [DllImport("user32.dll")] private static extern ushort RegisterClass(ref WNDCLASS lpWndClass);
         [DllImport("user32.dll")] private static extern IntPtr DefWindowProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
-
         [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl)]
         private static extern int mpv_get_property(IntPtr mpvHandle, string name, int format, ref long data);
         [DllImport("user32.dll")]
         private static extern bool IsWindow(IntPtr hWnd);
-
         [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl)]
         private static extern int mpv_set_property(IntPtr mpvHandle, string name, int format, ref long data);
         [DllImport("user32.dll")] private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
@@ -78,7 +76,6 @@ namespace MediaLedInterfaceNew
             public string lpszMenuName;
             public string lpszClassName;
         }
-
         private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
         private WndProcDelegate? _wndProc;
 
@@ -109,7 +106,6 @@ namespace MediaLedInterfaceNew
     0, 0, 1280, 720,
     parentHwnd,
     IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
-
             _mpvHandle = mpv_create();
             if (_mpvHandle == IntPtr.Zero) return;
             mpv_set_option_string(_mpvHandle, "log-file", "D:\\mpv_debug_log.txt");
@@ -118,15 +114,14 @@ namespace MediaLedInterfaceNew
             mpv_set_option_string(_mpvHandle, "wid", Handle.ToInt64().ToString());
             mpv_set_option_string(_mpvHandle, "force-window", "yes");
             mpv_set_option_string(_mpvHandle, "background", "#000000");
-
             mpv_set_option_string(_mpvHandle, "osc", "no");
             mpv_set_option_string(_mpvHandle, "input-default-bindings", "no");
             mpv_set_option_string(_mpvHandle, "input-vo-keyboard", "no");
             mpv_set_option_string(_mpvHandle, "input-media-keys", "no");
             mpv_set_option_string(_mpvHandle, "vo", "gpu");
-            mpv_set_option_string(_mpvHandle, "gpu-context", "d3d11");
+            mpv_set_option_string(_mpvHandle, "gpu-context", "angle");
             mpv_set_option_string(_mpvHandle, "gpu-api", "d3d11");
-            mpv_set_option_string(_mpvHandle, "hwdec", "auto-copy");
+            mpv_set_option_string(_mpvHandle, "hwdec", "auto");
             mpv_set_option_string(_mpvHandle, "ontop", "no");
             mpv_set_option_string(_mpvHandle, "input-default-bindings", "yes");
             mpv_set_option_string(_mpvHandle, "hwdec-codecs", "all");
@@ -196,7 +191,6 @@ namespace MediaLedInterfaceNew
             mpv_get_property(_mpvHandle, name, 4, ref result);
             return result;
         }
-
         public void SetOpacity(byte alpha)
         {
             if (_lastOpacity == alpha) return;
@@ -230,18 +224,14 @@ namespace MediaLedInterfaceNew
             {
             }
         }
-
-
         public void Play(string filePath)
         {
             if (_mpvHandle != IntPtr.Zero && !string.IsNullOrWhiteSpace(filePath))
                 DoCommand("loadfile", filePath);
         }
-
         public void Stop() { DoCommand("stop"); }
         public void Pause() { DoCommand("set", "pause", "yes"); }
         public void Resume() { DoCommand("set", "pause", "no"); }
-
         public void SetVolume(double vol)
         {
             if (vol < 0) vol = 0;
@@ -249,7 +239,6 @@ namespace MediaLedInterfaceNew
             string volString = vol.ToString(System.Globalization.CultureInfo.InvariantCulture);
             DoCommand("set", "volume", volString);
         }
-
         public void SetPropertyString(string name, string value)
         {
             if (_mpvHandle != IntPtr.Zero)
@@ -257,7 +246,6 @@ namespace MediaLedInterfaceNew
                 mpv_set_property_string(_mpvHandle, name, value);
             }
         }
-
         public void ShowOsdText(string text, int durationMs = 3000)
         {
             if (_mpvHandle == IntPtr.Zero) return;
@@ -287,7 +275,6 @@ namespace MediaLedInterfaceNew
             if (_mpvHandle == IntPtr.Zero) return;
             mpv_set_property(_mpvHandle, name, 5, ref value);
         }
-
         public void Seek(double targetSeconds)
         {
             DoCommand("seek", targetSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture), "absolute");
@@ -316,7 +303,6 @@ namespace MediaLedInterfaceNew
                 for (int i = 0; i < args.Length; i++) if (ptrs[i] != IntPtr.Zero) Marshal.FreeHGlobal(ptrs[i]);
             }
         }
-
         public void Dispose()
         {
             if (_mpvHandle != IntPtr.Zero) { mpv_terminate_destroy(_mpvHandle); _mpvHandle = IntPtr.Zero; }
@@ -327,7 +313,6 @@ namespace MediaLedInterfaceNew
 
         [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl)]
         private static extern int mpv_set_log_callback(IntPtr mpvHandle, MpvLogCallback cb, IntPtr data);
-        private MpvLogCallback _logCallback;
         private void HandleMpvLog(IntPtr logLevel, string prefix, string text)
         {
             if (text.Contains("error") || text.Contains("failed") || prefix.Contains("lavfi") || prefix.Contains("ffmpeg"))
@@ -335,7 +320,6 @@ namespace MediaLedInterfaceNew
                 System.Diagnostics.Debug.WriteLine($"[MPV CORE] {prefix}: {text.Trim()}");
             }
         }
-
         public void AddVideoFilter(string label, string filterString)
         {
             System.Diagnostics.Debug.WriteLine($"[MPV DEBUG] Filter gửi đi: {filterString}");
@@ -354,7 +338,6 @@ namespace MediaLedInterfaceNew
         {
             DoCommand("sub-remove");
         }
-
         public void Screenshot(string path)
         {
             string safePath = path.Replace("\\", "/");

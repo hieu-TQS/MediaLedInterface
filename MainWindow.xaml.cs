@@ -856,7 +856,7 @@ namespace MediaLedInterfaceNew
                 _engine.SetPropertyString("vd-lavc-dr", "no");
 
 
-                _engine.SetLedScreen(false, 0);
+                _engine.SetLedScreen(false, new MediaEngine.RECT());
                 LoadSystemSettings();
                 LoadBackgroundSetting();
                 KeyManager.LoadKeys();
@@ -1156,19 +1156,18 @@ namespace MediaLedInterfaceNew
         {
             if (_engine == null) return;
 
-
             var currentMonitorInfo = _engine.GetCurrentAppMonitor();
             _lastMonitorHandle = currentMonitorInfo.Handle;
             var secondaryMonitors = _engine.GetSecondaryMonitors();
-            cboMonitorOutput.ItemsSource = secondaryMonitors;
-
-            if (secondaryMonitors.Count > 0)
+            bool isValidSecondary = secondaryMonitors.Count > 0 && !secondaryMonitors[0].IsPrimary;
+            if (isValidSecondary)
             {
+                cboMonitorOutput.ItemsSource = secondaryMonitors;
                 cboMonitorOutput.SelectedIndex = 0;
                 _selectedMonitor = secondaryMonitors[0];
-
                 btnToggleLed.IsEnabled = true;
                 btnToggleLed.Opacity = 1.0;
+
                 string msg = $"✅ Smart Detect:\n" +
                              $"• App đang ở: {currentMonitorInfo.Name}\n" +
                              $"• Auto Output: {_selectedMonitor.Name}";
@@ -1181,14 +1180,13 @@ namespace MediaLedInterfaceNew
             else
             {
                 cboMonitorOutput.ItemsSource = null;
-                cboMonitorOutput.PlaceholderText = "Không có màn hình phụ";
+                cboMonitorOutput.PlaceholderText = "Chưa kết nối màn hình phụ";
                 _selectedMonitor = null;
-
                 if (_isLedOn) btnToggleLed_Click(null, null);
-
                 btnToggleLed.IsEnabled = false;
                 btnToggleLed.Opacity = 0.3;
-                txtMonitorStatus.Text = $"⚠️ Chỉ phát hiện 1 màn hình ({currentMonitorInfo.Name}).\nVui lòng cắm dây HDMI/DP.";
+
+                txtMonitorStatus.Text = $"⚠️ Đang ở chế độ 1 màn hình (hoặc Duplicate).\nVui lòng cắm cáp HDMI/DP/VGA/DVI chuyển chế độ mở rộng (Extend) để kích hoạt tính năng này.";
                 txtMonitorStatus.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange);
             }
         }
@@ -1201,8 +1199,9 @@ namespace MediaLedInterfaceNew
                 _selectedMonitor = monitor;
                 if (_isLedOn && _engine != null)
                 {
-                    _engine.SetLedScreen(false, 0);
-                    _engine.SetLedScreen(true, _selectedMonitor.Index);
+                    // [SỬA ĐỔI] Truyền RECT giả khi tắt và RECT thật khi bật
+                    _engine.SetLedScreen(false, new MediaEngine.RECT());
+                    _engine.SetLedScreen(true, _selectedMonitor.Rect);
                 }
             }
         }
@@ -3966,7 +3965,45 @@ namespace MediaLedInterfaceNew
                 if (sldZoom != null) sldZoom.Value = 0;
             }
         }
-        private void sldZoom_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        // --- XỬ LÝ NÚT BẤM TINH CHỈNH ---
+
+        // 1. ZOOM
+        private void btnZoomIn_Click(object sender, RoutedEventArgs e)
+        {
+            // Tăng 0.1
+            if (sldZoom.Value < sldZoom.Maximum) sldZoom.Value += 0.1;
+        }
+
+        private void btnZoomOut_Click(object sender, RoutedEventArgs e)
+        {
+            // Giảm 0.1
+            if (sldZoom.Value > sldZoom.Minimum) sldZoom.Value -= 0.1;
+        }
+
+        // 2. SCALE X (Chiều ngang)
+        private void btnScaleXUp_Click(object sender, RoutedEventArgs e)
+        {
+            // Tăng 0.01 để chỉnh mịn
+            if (sldScaleX.Value < sldScaleX.Maximum) sldScaleX.Value += 0.01;
+        }
+
+        private void btnScaleXDown_Click(object sender, RoutedEventArgs e)
+        {
+            // Giảm 0.01
+            if (sldScaleX.Value > sldScaleX.Minimum) sldScaleX.Value -= 0.01;
+        }
+
+        // 3. SCALE Y (Chiều dọc)
+        private void btnScaleYUp_Click(object sender, RoutedEventArgs e)
+        {
+            if (sldScaleY.Value < sldScaleY.Maximum) sldScaleY.Value += 0.01;
+        }
+
+        private void btnScaleYDown_Click(object sender, RoutedEventArgs e)
+        {
+            if (sldScaleY.Value > sldScaleY.Minimum) sldScaleY.Value -= 0.01;
+        }
+        void sldZoom_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
             if (_engine == null) return;
 
@@ -3975,9 +4012,39 @@ namespace MediaLedInterfaceNew
 
             if (lblZoomLevel != null)
             {
-                int percent = 100 + (int)(val * 100);
+                int percent = (int)(Math.Pow(2, val) * 100);
+
                 lblZoomLevel.Text = $"{percent}%";
             }
+        }
+        private void sldScaleX_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (_engine == null) return;
+            double val = e.NewValue;
+
+            _engine.SetScaleX(val);
+
+            if (lblScaleX != null) lblScaleX.Text = val.ToString("0.00");
+        }
+
+        private void sldScaleY_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (_engine == null) return;
+            double val = e.NewValue;
+
+            _engine.SetScaleY(val);
+
+            if (lblScaleY != null) lblScaleY.Text = val.ToString("0.00");
+        }
+
+        private void btnResetScaleX_Click(object sender, RoutedEventArgs e)
+        {
+            sldScaleX.Value = 1.0;
+        }
+
+        private void btnResetScaleY_Click(object sender, RoutedEventArgs e)
+        {
+            sldScaleY.Value = 1.0;
         }
 
         private void btnResetZoom_Click(object sender, RoutedEventArgs e)
@@ -4578,30 +4645,47 @@ namespace MediaLedInterfaceNew
 
             if (_selectedMonitor == null)
             {
-                UpdateStatus("⛔ Không thể bật LED: Chưa chọn màn hình xuất!", false, true);
+                UpdateStatus("⛔ Chưa chọn màn hình xuất! Vui lòng kiểm tra dây cáp.", false, true);
                 RefreshMonitors();
                 return;
+            }
+
+            // [SỬA ĐỔI QUAN TRỌNG]
+            // Không chặn người dùng nữa (xóa đoạn return).
+            // Thay vào đó: Nếu chưa phát gì, hãy nạp hình nền chờ (ShowWallpaper) để Engine khởi tạo cửa sổ.
+            // Điều này giúp tránh Crash mà vẫn cho phép xuất hình khi đang Stop.
+            if (!_engine.IsPlaying() && !_engine.IsShowingWallpaper)
+            {
+                _engine.ShowWallpaper();
+                // Nếu chưa có ảnh nền, màn hình sẽ đen (nhưng không crash).
+                // Nếu đã cài ảnh nền trong setting, nó sẽ hiện ảnh nền.
             }
 
             _isLedOn = !_isLedOn;
 
             if (_isLedOn)
             {
-                _engine.SetLedScreen(true, _selectedMonitor.Index);
+                // Truyền Rect của màn hình đã chọn để xuất đúng vị trí
+                _engine.SetLedScreen(true, _selectedMonitor.Rect);
+
                 if (btnToggleLed.Content is FontIcon icon)
                 {
-                    icon.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 140, 0));
+                    icon.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 140, 0)); // Màu cam
                     if (iconLed != null) iconLed.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 140, 0));
                 }
+                UpdateStatus($"🚀 Đã xuất hình ra: {_selectedMonitor.Name}");
             }
             else
             {
-                _engine.SetLedScreen(false, 0);
+                // Tắt màn hình LED
+                _engine.SetLedScreen(false, new MediaEngine.RECT());
+
                 if (btnToggleLed.Content is FontIcon icon)
                 {
                     icon.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray);
                     if (iconLed != null) iconLed.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray);
                 }
+                UpdateStatus("Đã ngắt kết nối màn hình LED.");
             }
 
             UpdateMpvLayout();

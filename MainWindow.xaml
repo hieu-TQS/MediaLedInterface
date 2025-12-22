@@ -747,15 +747,70 @@
                                 </Grid>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="30"/>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="30"/>
+                                        <ColumnDefinition Width="40"/>
                                     </Grid.ColumnDefinitions>
-                                    <Slider x:Name="sldZoom" Grid.Column="0" Minimum="0" Maximum="3" StepFrequency="0.1" Value="0" ValueChanged="sldZoom_ValueChanged"/>
-                                    <Button Click="btnResetZoom_Click" Grid.Column="1" Margin="10,0,0,0" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Đặt lại Zoom">
-                                        <FontIcon Glyph="&#xE777;" FontSize="14" Foreground="Gray"/>
+
+                                    <Button Click="btnZoomOut_Click" Grid.Column="0" Content="-" FontSize="16" Padding="0,0,0,4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#333333" CornerRadius="4"/>
+
+                                    <Slider x:Name="sldZoom" Grid.Column="1" Margin="8,-6,8,0" Minimum="-5" Maximum="3" StepFrequency="0.01" Value="0" ValueChanged="sldZoom_ValueChanged"/>
+
+                                    <Button Click="btnZoomIn_Click" Grid.Column="2" Content="+" FontSize="16" Padding="0,0,0,4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#333333" CornerRadius="4"/>
+
+                                    <Button Click="btnResetZoom_Click" Grid.Column="3" Margin="5,0,0,0" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Đặt lại Zoom">
+                                        <FontIcon Glyph="&#xE777;" FontSize="12" Foreground="Gray"/>
+                                    </Button>
+                                </Grid>
+
+                                <Grid Margin="0,15,0,5">
+                                    <TextBlock Text="Giãn chiều ngang (Scale X):" FontSize="11" Foreground="Gray"/>
+                                    <TextBlock x:Name="lblScaleX" Text="1.00" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="30"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="30"/>
+                                        <ColumnDefinition Width="40"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Button Click="btnScaleXDown_Click" Grid.Column="0" Content="-" FontSize="16" Padding="0,0,0,4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#333333" CornerRadius="4"/>
+
+                                    <Slider x:Name="sldScaleX" Grid.Column="1" Margin="8,-6,8,0" Minimum="0.1" Maximum="3.0" StepFrequency="0.01" Value="1.0" ValueChanged="sldScaleX_ValueChanged"/>
+
+                                    <Button Click="btnScaleXUp_Click" Grid.Column="2" Content="+" FontSize="16" Padding="0,0,0,4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#333333" CornerRadius="4"/>
+
+                                    <Button Click="btnResetScaleX_Click" Grid.Column="3" Margin="5,0,0,0" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Reset X">
+                                        <FontIcon Glyph="&#xE777;" FontSize="12"/>
+                                    </Button>
+                                </Grid>
+
+                                <Grid Margin="0,15,0,5">
+                                    <TextBlock Text="Giãn chiều dọc (Scale Y):" FontSize="11" Foreground="Gray"/>
+                                    <TextBlock x:Name="lblScaleY" Text="1.00" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="30"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="30"/>
+                                        <ColumnDefinition Width="40"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Button Click="btnScaleYDown_Click" Grid.Column="0" Content="-" FontSize="16" Padding="0,0,0,4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#333333" CornerRadius="4"/>
+
+                                    <Slider x:Name="sldScaleY" Grid.Column="1" Margin="8,-6,8,0" Minimum="0.1" Maximum="3.0" StepFrequency="0.01" Value="1.0" ValueChanged="sldScaleY_ValueChanged"/>
+
+                                    <Button Click="btnScaleYUp_Click" Grid.Column="2" Content="+" FontSize="16" Padding="0,0,0,4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#333333" CornerRadius="4"/>
+
+                                    <Button Click="btnResetScaleY_Click" Grid.Column="3" Margin="5,0,0,0" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Reset Y">
+                                        <FontIcon Glyph="&#xE777;" FontSize="12"/>
                                     </Button>
                                 </Grid>
                             </StackPanel>
+
                         </StackPanel>
                     </Expander>
 

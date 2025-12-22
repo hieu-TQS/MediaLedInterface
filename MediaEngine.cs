@@ -1,5 +1,4 @@
-﻿using Microsoft.UI.Dispatching;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -323,11 +322,10 @@ namespace MediaLedInterfaceNew
         private MpvController _playerA;
         private MpvController _playerB;
         private bool _isUsingA = true;
-        private bool _isTransitioning = false;
         public bool IsTransitioning { get; private set; } = false;
         private bool _hasContent = false;
 
-        private DispatcherQueue _dispatcher;
+        private Microsoft.UI.Dispatching.DispatcherQueue _dispatcher;
         private WndProcDelegate _wndProc;
 
         private string _backgroundImagePath = "";
@@ -439,11 +437,17 @@ namespace MediaLedInterfaceNew
 
         public void ShowWallpaper()
         {
+            ActivePlayer.SetPropertyString("background", "#FF000000");
+            ActivePlayer.SetPropertyString("background-color", "#000000");
+
             if (string.IsNullOrEmpty(_backgroundImagePath) || !System.IO.File.Exists(_backgroundImagePath))
             {
                 ActivePlayer.DoCommand("stop");
-                ActivePlayer.SetOpacity(0);
-                IsShowingWallpaper = false;
+                ActivePlayer.SetOpacity(255);
+
+                IsShowingWallpaper = true;
+                _hasContent = false;
+                ToggleDwm(true);
                 return;
             }
 
@@ -455,7 +459,6 @@ namespace MediaLedInterfaceNew
             ActivePlayer.SetPropertyDouble("video-zoom", 0);
             ActivePlayer.SetPropertyDouble("video-pan-x", 0);
             ActivePlayer.SetPropertyDouble("video-pan-y", 0);
-
             ActivePlayer.SetPropertyString("hwdec", "no");
             ActivePlayer.SetPropertyString("vd-lavc-threads", "0");
             ActivePlayer.SetPropertyString("video-unscaled", "no");
@@ -472,7 +475,32 @@ namespace MediaLedInterfaceNew
             _hasContent = true;
             ToggleDwm(true);
         }
-        public MediaEngine(IntPtr mainAppHwnd, DispatcherQueue dispatcher)
+        private string GetMonitorPositionName(RECT mainRect, RECT targetRect)
+        {
+            int mainCenterX = (mainRect.left + mainRect.right) / 2;
+            int mainCenterY = (mainRect.top + mainRect.bottom) / 2;
+
+            int targetCenterX = (targetRect.left + targetRect.right) / 2;
+            int targetCenterY = (targetRect.top + targetRect.bottom) / 2;
+
+            if (mainRect.left == targetRect.left && mainRect.top == targetRect.top)
+            {
+                return " (Trung tâm)";
+            }
+
+            int deltaX = targetCenterX - mainCenterX;
+            int deltaY = targetCenterY - mainCenterY;
+
+            if (Math.Abs(deltaX) > Math.Abs(deltaY))
+            {
+                return deltaX < 0 ? " (Trái)" : " (Phải)";
+            }
+            else
+            {
+                return deltaY < 0 ? " (Trên)" : " (Dưới)";
+            }
+        }
+        public MediaEngine(IntPtr mainAppHwnd, Microsoft.UI.Dispatching.DispatcherQueue dispatcher)
         {
             _mainAppHwnd = mainAppHwnd;
             _dispatcher = dispatcher;
@@ -481,27 +509,7 @@ namespace MediaLedInterfaceNew
 
             _playerA = new MpvController();
             _playerA.Initialize(_hostHwnd);
-            void SetupMpvDefaults(MpvController p)
-            {
-                // Tắt hoàn toàn giao diện điều khiển (nút play, thanh seek bar, logo mờ)
-                p.SetPropertyString("osc", "no");
 
-                // Tắt thông báo chữ to đùng trên màn hình (OSD) khi không cần thiết
-                p.SetPropertyString("osd-level", "0");
-
-                // Ép cửa sổ hiển thị ngay lập tức (màu đen) thay vì chờ load video
-                // Giúp tránh hiện tượng màn hình trong suốt hoặc hiện hình desktop
-                p.SetPropertyString("force-window", "immediate");
-
-                // Giữ player mở chứ không tắt ngấm khi hết video (tránh chớp tắt cửa sổ)
-                p.SetPropertyString("keep-open", "yes");
-
-                // Tắt các phím tắt và chuột mặc định của MPV để tránh xung đột click
-                p.SetPropertyString("input-default-bindings", "no");
-
-                // Đặt màu nền đen tuyệt đối (quan trọng)
-                p.SetPropertyString("background", "#000000");
-            }
             _playerB = new MpvController();
             _playerB.Initialize(_hostHwnd);
             void SetupSubStyle(MpvController p)
@@ -525,6 +533,8 @@ namespace MediaLedInterfaceNew
             public string Name { get; set; }
             public string Resolution { get; set; }
             public bool IsPrimary { get; set; }
+            public IntPtr HMonitor { get; set; }
+            public RECT Rect { get; set; }
             public IntPtr Handle { get; set; }
             public string ResolutionDisplay => $"Độ phân giải: {Resolution}";
         }
@@ -535,46 +545,40 @@ namespace MediaLedInterfaceNew
 
         public List<MonitorInfo> GetSecondaryMonitors()
         {
-            var outputList = new List<MonitorInfo>();
+            var allMonitors = new List<MonitorInfo>();
             IntPtr appMonitor = MonitorFromWindow(_mainAppHwnd, 1);
-            int index = 0;
-            MonitorEnumProc callback = (IntPtr hMonitor, IntPtr hdc, ref RECT rect, IntPtr data) =>
-            {
-                MONITORINFOEX mi = new MONITORINFOEX();
-                mi.cbSize = Marshal.SizeOf(typeof(MONITORINFOEX));
 
-                if (GetMonitorInfo(hMonitor, ref mi))
+            MONITORINFO appMi = new MONITORINFO();
+            appMi.cbSize = Marshal.SizeOf(appMi);
+            GetMonitorInfo(appMonitor, ref appMi);
+            EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero,
+                delegate (IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData)
                 {
-                    string friendlyName = "Generic Monitor";
+                    MONITORINFO mi = new MONITORINFO();
+                    mi.cbSize = Marshal.SizeOf(mi);
+                    GetMonitorInfo(hMonitor, ref mi);
+                    int width = Math.Abs(mi.rcMonitor.right - mi.rcMonitor.left);
+                    int height = Math.Abs(mi.rcMonitor.bottom - mi.rcMonitor.top);
+                    string resolution = $"{width}x{height}";
+                    string positionName = GetMonitorPositionName(appMi.rcMonitor, mi.rcMonitor);
+                    string finalName = $"Màn hình{positionName} - {resolution}";
 
-                    DISPLAY_DEVICE device = new DISPLAY_DEVICE();
-                    device.cb = Marshal.SizeOf(device);
-                    if (EnumDisplayDevices(mi.szDevice, 0, ref device, 0))
+                    allMonitors.Add(new MonitorInfo
                     {
-                        friendlyName = device.DeviceString;
-                    }
-                    if (string.IsNullOrEmpty(friendlyName)) friendlyName = $"Màn hình #{index + 1}";
+                        HMonitor = hMonitor,
+                        Rect = mi.rcMonitor,
+                        Name = finalName,
+                        IsPrimary = (hMonitor == appMonitor)
+                    });
 
-                    int width = mi.rcMonitor.right - mi.rcMonitor.left;
-                    int height = mi.rcMonitor.bottom - mi.rcMonitor.top;
-                    if (hMonitor != appMonitor)
-                    {
-                        outputList.Add(new MonitorInfo
-                        {
-                            Index = index,
-                            Name = friendlyName,
-                            Resolution = $"{width}x{height}",
-                            Handle = hMonitor,
-                            IsPrimary = false
-                        });
-                    }
-                }
-                index++;
-                return true;
-            };
-
-            EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, callback, IntPtr.Zero);
-            return outputList;
+                    return true;
+                },
+                IntPtr.Zero);
+            if (allMonitors.Count > 1)
+            {
+                return allMonitors.Where(m => !m.IsPrimary).ToList();
+            }
+            return allMonitors;
         }
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern IntPtr LoadImage(IntPtr hinst, string lpszName, uint uType, int cxDesired, int cyDesired, uint fuLoad);
@@ -998,20 +1002,19 @@ namespace MediaLedInterfaceNew
             SetWindowPos(player.Handle, IntPtr.Zero, 0, 0, 0, 0,
                 0x0001 | 0x0002 | 0x0040 | 0x0020);
         }
-        public void SetLedScreen(bool on, int monitorIndex)
+        public void SetLedScreen(bool on, RECT targetRect)
         {
             if (_isPlayerMode) return;
 
             _isLedOn = on;
-            _currentMonitorIndex = monitorIndex;
             MpvController activePlayer = _isUsingA ? _playerA : _playerB;
 
             if (on)
             {
-                RECT r = GetMonitorRect(monitorIndex);
-                int width = r.right - r.left;
-                int height = r.bottom - r.top;
-                MoveWindow(_hostHwnd, r.left, r.top, width, height, true);
+                int width = targetRect.right - targetRect.left;
+                int height = targetRect.bottom - targetRect.top;
+                MoveWindow(_hostHwnd, targetRect.left, targetRect.top, width, height, true);
+
                 activePlayer.Resize(width, height);
                 ShowWindow(_hostHwnd, 5);
                 SetWindowPos(_hostHwnd, new IntPtr(-2), 0, 0, 0, 0, 0x0001 | 0x0002);
@@ -1845,12 +1848,26 @@ namespace MediaLedInterfaceNew
                     break;
             }
         }
+        public void SetScaleX(double val)
+        {
+            ActivePlayer.SetPropertyDouble("video-scale-x", val);
+        }
+
+        public void SetScaleY(double val)
+        {
+            ActivePlayer.SetPropertyDouble("video-scale-y", val);
+        }
+        public void ResetScale()
+        {
+            ActivePlayer.SetPropertyDouble("video-scale-x", 1.0);
+            ActivePlayer.SetPropertyDouble("video-scale-y", 1.0);
+        }
         public void SetManualZoom(double level)
         {
             ActivePlayer.SetPropertyDouble("video-zoom", level);
             if (level != 0)
             {
-                int percent = 100 + (int)(level * 100);
+                int percent = (int)(Math.Pow(2, level) * 100);
                 ShowOsdText($"Zoom: {percent}%", 1000);
             }
         }
