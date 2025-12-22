@@ -331,26 +331,18 @@ namespace MediaLedInterfaceNew
             }
             if (pnlAudioViz != null) pnlAudioViz.Visibility = Visibility.Collapsed;
         }
-
-        // Biến cho AGC (Tự động cân bằng âm lượng)
-        private double _currentMaxLevel = 0.01; // Mức tín hiệu lớn nhất hiện tại (tránh chia cho 0)
-        private const double NOISE_GATE = 0.0005; // Ngưỡng lọc nhiễu (dưới mức này coi là im lặng)
-        private Random _fakeRnd = new Random(); // Random cho chế độ giả lập khi Mute
+        private double _currentMaxLevel = 0.01;
+        private const double NOISE_GATE = 0.0005;
+        private Random _fakeRnd = new Random();
         private void OnAudioDataAvailable(object? sender, WaveInEventArgs e)
         {
             if (e.BytesRecorded == 0) return;
 
-            // Chuyển đổi byte sang float (PCM 32-bit IEEE float)
             for (int i = 0; i < e.BytesRecorded; i += 4)
             {
-                // Lấy mẫu âm thanh
                 float sample = BitConverter.ToSingle(e.Buffer, i);
-
-                // Đưa vào buffer
                 _fftBuffer[_fftPos] = sample;
                 _fftPos++;
-
-                // Khi đủ dữ liệu thì tính toán FFT
                 if (_fftPos >= FftLength)
                 {
                     _fftPos = 0;
@@ -361,7 +353,6 @@ namespace MediaLedInterfaceNew
 
         private void CalculateFFT()
         {
-            // 1. Xử lý FFT
             NAudio.Dsp.Complex[] fftComplex = new NAudio.Dsp.Complex[FftLength];
             for (int i = 0; i < FftLength; i++)
             {
@@ -370,8 +361,6 @@ namespace MediaLedInterfaceNew
                 fftComplex[i].Y = 0;
             }
             FastFourierTransform.FFT(true, (int)Math.Log(FftLength, 2.0), fftComplex);
-
-            // 2. Chia dải tần
             double[] bands = new double[9];
             bands[0] = GetBandAverage(fftComplex, 0, 2);
             bands[1] = GetBandAverage(fftComplex, 2, 5);
@@ -382,34 +371,22 @@ namespace MediaLedInterfaceNew
             bands[6] = GetBandAverage(fftComplex, 80, 150);
             bands[7] = GetBandAverage(fftComplex, 150, 300);
             bands[8] = GetBandAverage(fftComplex, 300, 511);
-
-            // --- BƯỚC 3: AGC (TỰ ĐỘNG CÂN BẰNG) ---
-
-            // Tìm giá trị lớn nhất trong khung hình hiện tại
             double frameMax = 0;
             for (int i = 0; i < 9; i++)
             {
                 if (bands[i] > frameMax) frameMax = bands[i];
             }
 
-            // Cập nhật mức trần (Dynamic Ceiling)
-            // Nếu tín hiệu hiện tại lớn hơn mức trần đã biết -> Đẩy trần lên
             if (frameMax > _currentMaxLevel)
             {
                 _currentMaxLevel = frameMax;
             }
             else
             {
-                // Nếu tín hiệu nhỏ hơn, từ từ hạ trần xuống (để thích nghi khi bạn vặn nhỏ volume)
                 _currentMaxLevel -= 0.0001;
-                if (_currentMaxLevel < 0.001) _currentMaxLevel = 0.001; // Không được xuống quá thấp
+                if (_currentMaxLevel < 0.001) _currentMaxLevel = 0.001;
             }
-
-            // Tính hệ số phóng đại (Scale Factor)
-            // Mục tiêu: Luôn đưa mức tín hiệu cao nhất về khoảng 0.8 (80% cột)
             double agcFactor = 0.6 / _currentMaxLevel;
-
-            // --- BƯỚC 4: XỬ LÝ KHI MUTE HOẶC IM LẶNG ---
             bool isSilence = frameMax < NOISE_GATE;
 
             double[] boosted = new double[9];
@@ -417,25 +394,25 @@ namespace MediaLedInterfaceNew
             {
                 if (isSilence)
                 {
-                    // CHẾ ĐỘ GIẢ LẬP (Fake Viz): Khi Mute hoặc hết nhạc
-                    // Tạo sóng ngẫu nhiên nhẹ nhàng để màn hình không bị chết
-                    // Tần số thấp (Bass) dao động chậm, Tần số cao dao động nhanh
-                    boosted[i] = _fakeRnd.NextDouble() * 0.2;
+                    boosted[i] = 0;
                 }
                 else
                 {
-                    // CHẾ ĐỘ THẬT: Áp dụng AGC
                     double val = bands[i] * agcFactor;
 
-                    // Vẫn giữ lại các tinh chỉnh Bass/Treble cũ
-                    if (i == 0) val *= 0.8;      // Giảm Sub-Bass
-                    else if (i >= 7) val *= 2.0; // Tăng Treble
+                    if (i == 0)
+                    {
+
+                        val *= 1.2;
+                    }
+                    else if (i >= 7)
+                    {
+                        val *= 2.0;
+                    }
 
                     boosted[i] = val;
                 }
             }
-
-            // 5. Cập nhật UI
             this.DispatcherQueue.TryEnqueue(() =>
             {
                 UpdateBar(bar5, peak5, boosted[0], 4);
@@ -456,56 +433,36 @@ namespace MediaLedInterfaceNew
         private void UpdateBar(Microsoft.UI.Xaml.Shapes.Rectangle? bar, Microsoft.UI.Xaml.Shapes.Rectangle? peakBar, double signalValue, int index)
         {
             if (bar == null || peakBar == null) return;
-
-            // 1. Lấy chiều cao khung chứa
             double containerHeight = 100;
             if (pnlAudioViz.Parent is FrameworkElement parent)
             {
                 containerHeight = parent.ActualHeight;
                 if (containerHeight < 20) containerHeight = 20;
             }
-
-            // Giới hạn 95%
             double maxHeight = containerHeight * 0.95;
-
-            // 2. Tính chiều cao mục tiêu (Target)
             double targetHeight = signalValue * maxHeight;
-
-            // Cắt ngọn & đáy
             if (targetHeight > maxHeight) targetHeight = maxHeight;
             if (targetHeight < 4) targetHeight = 4;
 
-            // --- THUẬT TOÁN SIÊU MƯỢT (ULTRA SMOOTH) ---
-
-            // Hệ số làm mượt (Càng nhỏ càng mượt nhưng càng trễ)
-            // 0.15 = Rất mượt (Slow)
-            // 0.3 = Vừa phải (Normal)
-            // 0.5 = Nhanh (Fast)
-            double smoothFactorUp = 0.2;   // Tốc độ đi lên (Giảm từ 0.4 xuống 0.2)
-            double smoothFactorDown = 0.1; // Tốc độ đi xuống (Dùng nội suy thay vì trừ thẳng)
+            double smoothFactorUp = 0.2;
+            double smoothFactorDown = 0.1;
 
             if (targetHeight > _lastLevels[index])
             {
-                // Đi lên: Nhích từ từ 20% khoảng cách mỗi lần
                 _lastLevels[index] += (targetHeight - _lastLevels[index]) * smoothFactorUp;
             }
             else
             {
-                // Đi xuống: Cũng dùng nội suy để rơi "mềm" hơn (Exponential Decay)
-                // Thay vì rơi bộp một cái (Linear), nó sẽ giảm tốc dần khi gần đáy
                 _lastLevels[index] += (targetHeight - _lastLevels[index]) * smoothFactorDown;
             }
 
-            // Ràng buộc giá trị
             if (_lastLevels[index] > maxHeight) _lastLevels[index] = maxHeight;
             if (_lastLevels[index] < 4) _lastLevels[index] = 4;
 
             bar.Height = _lastLevels[index];
 
-            // 3. Xử lý Vạch Peak (Cũng làm mượt nhẹ)
             if (_lastLevels[index] > _currentPeaks[index])
             {
-                // Đẩy Peak lên nhanh hơn thanh chính một chút để tạo cảm giác lực
                 _currentPeaks[index] = _lastLevels[index];
                 _peakHoldTimers[index] = PEAK_HOLD_FRAMES;
             }
@@ -517,16 +474,13 @@ namespace MediaLedInterfaceNew
                 }
                 else
                 {
-                    // Rơi chậm hơn nữa (Giảm từ 0.5 xuống 0.3)
                     _currentPeaks[index] -= 0.3;
                 }
             }
 
-            // Kéo vạch Peak xuống nếu vượt trần (Fix lỗi resize)
             if (_currentPeaks[index] > maxHeight) _currentPeaks[index] = maxHeight;
             if (_currentPeaks[index] < 4) _currentPeaks[index] = 4;
 
-            // Cập nhật vị trí
             peakBar.Margin = new Microsoft.UI.Xaml.Thickness(0, 0, 0, _currentPeaks[index]);
         }
         private double GetBandAverage(NAudio.Dsp.Complex[] data, int startIdx, int endIdx)
@@ -534,7 +488,6 @@ namespace MediaLedInterfaceNew
             double sum = 0;
             for (int i = startIdx; i <= endIdx && i < data.Length; i++)
             {
-                // Tính độ lớn (Magnitude)
                 double magnitude = Math.Sqrt(data[i].X * data[i].X + data[i].Y * data[i].Y);
                 sum += magnitude;
             }
