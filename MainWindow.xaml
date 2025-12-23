@@ -1888,7 +1888,7 @@
             HorizontalAlignment="Stretch"
             Background="#2D2D2D" BorderBrush="#404040"
             Foreground="#4CC2FF"
-            ToolTipService.ToolTip="Ghi lại danh sách hiện tại vào bộ nhớ">
+            ToolTipService.ToolTip="Lưu danh sách hiện tại vào bộ nhớ">
                             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
                                 <FontIcon Glyph="&#xE74E;" FontSize="14"/>
                                 <TextBlock Text="Lưu"/>
@@ -1901,7 +1901,7 @@
             HorizontalAlignment="Stretch"
             Background="#2D2D2D" BorderBrush="#404040"
             Foreground="LimeGreen"
-            ToolTipService.ToolTip="Hủy thay đổi, tải lại danh sách đã lưu">
+            ToolTipService.ToolTip="Khôi phục danh sách đã lưu">
                             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
                                 <FontIcon Glyph="&#xE777;" FontSize="14"/>
                                 <TextBlock Text="Khôi phục"/>

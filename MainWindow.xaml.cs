@@ -1965,7 +1965,7 @@ namespace MediaLedInterfaceNew
             }
             string url = $"https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&q={Uri.EscapeDataString(keyword)}&type=video&key={KeyManager.GetYoutubeKey()}{pageToken}";
 
-            UpdateStatus($"⏳ YouTube: Đang tải trang {pageIndex + 1}...", true);
+            UpdateStatus($"⏳ YouTube: Đang tải trang {pageIndex + 1}...", false);
 
             try
             {
@@ -2092,7 +2092,7 @@ namespace MediaLedInterfaceNew
         {
             string normalizedKeyword = keyword.Normalize(System.Text.NormalizationForm.FormC).Replace("'", "''");
 
-            UpdateStatus($"⏳ Đang tìm kiếm '{keyword}'...", true);
+            UpdateStatus($"⏳ Đang tìm kiếm '{keyword}'...", false);
 
             await Task.Run(() =>
             {
@@ -7767,7 +7767,6 @@ namespace MediaLedInterfaceNew
             throw new NotImplementedException();
         }
     }
-
     public class IndexToVisConverter : Microsoft.UI.Xaml.Data.IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, string language)
