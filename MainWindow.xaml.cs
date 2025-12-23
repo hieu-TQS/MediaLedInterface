@@ -89,7 +89,7 @@ namespace MediaLedInterfaceNew
         private bool _isLocalLoaded = false;
         private bool _isStreamLoaded = false;
         private bool _isTvLoaded = false;
-
+        private const string SETTING_VOLUME = "SavedVolume";
         private DispatcherTimer _reconnectTimer;
         private Microsoft.UI.Windowing.AppWindow? _appWindow;
         private MediaEngine? _engine;
@@ -226,7 +226,6 @@ namespace MediaLedInterfaceNew
             if (_allSystemFonts.Contains("Arial")) cboTickerFont.SelectedItem = "Arial";
             else if (_allSystemFonts.Count > 0) cboTickerFont.SelectedIndex = 0;
         }
-        // Hàm lưu riêng lẻ
         private void SaveListToJson(string fileName, object dataList)
         {
             try
@@ -240,15 +239,13 @@ namespace MediaLedInterfaceNew
                 string json = System.Text.Json.JsonSerializer.Serialize(dataList, options);
 
                 System.IO.File.WriteAllText(filePath, json);
-                UpdateStatus($"✅ Đã lưu vào {fileName}", false); // Tận dụng hàm UpdateStatus có sẵn của bạn
+                UpdateStatus($"✅ Đã lưu vào {fileName}", false);
             }
             catch (Exception ex)
             {
                 UpdateStatus($"❌ Lỗi lưu file {fileName}: {ex.Message}", false, true);
             }
         }
-
-        // Hàm đọc riêng lẻ
         private List<MediaItem> LoadListFromJson(string fileName)
         {
             try
@@ -269,7 +266,6 @@ namespace MediaLedInterfaceNew
             }
             return new List<MediaItem>();
         }
-        // -------------------------------------
         private void cboTickerFont_KeyUp(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
             var box = sender as ComboBox;
@@ -865,6 +861,15 @@ namespace MediaLedInterfaceNew
                 LoadSystemSettings();
                 LoadBackgroundSetting();
                 KeyManager.LoadKeys();
+                string savedVolStr = AppSettings.Get(SETTING_VOLUME);
+                double startVol = 60;
+                if (double.TryParse(savedVolStr, out double v))
+                {
+                    startVol = v;
+                }
+                sliderVolume.Value = startVol;
+                _engine.SetVolume(startVol);
+                UpdateVolumeIcon(startVol);
                 string savedMode = AppSettings.Get(SETTING_APP_MODE);
                 bool isPlayerStart = savedMode == "True";
                 btnModeSwitch.IsChecked = isPlayerStart;
@@ -1141,23 +1146,44 @@ namespace MediaLedInterfaceNew
                 _appWindow.Closing += AppWindow_Closing;
             }
         }
-
         private void AppWindow_Closing(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowClosingEventArgs args)
         {
+            if (sliderVolume != null)
+            {
+                AppSettings.Save(SETTING_VOLUME, sliderVolume.Value.ToString());
+            }
+            if (_folderWatcher != null)
+            {
+                _folderWatcher.EnableRaisingEvents = false;
+                _folderWatcher.Dispose();
+                _folderWatcher = null;
+            }
+
             CloseFsWindow();
 
             if (_isInternalFullscreen)
             {
-
                 _appWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
             }
             args.Cancel = false;
+
             if (_engine != null)
             {
                 _engine.Dispose();
                 _engine = null;
             }
-
+            Task.Run(() =>
+            {
+                try
+                {
+                    string tempFolder = Path.Combine(Path.GetTempPath(), "MediaLed_Cache");
+                    if (Directory.Exists(tempFolder))
+                    {
+                        Directory.Delete(tempFolder, true);
+                    }
+                }
+                catch { }
+            });
             System.Environment.Exit(0);
         }
         private void RefreshMonitors()
@@ -1277,12 +1303,9 @@ namespace MediaLedInterfaceNew
                 if (_playingItem == null) _engine.Stop();
             }
         }
-        // Thêm hàm này vào trong MainWindow.xaml.cs
         private void RemoveDuplicates_Click(object sender, RoutedEventArgs e)
         {
             int removedCount = 0;
-
-            // 1. XỬ LÝ TAB LOCAL (Trùng Tên + Kích thước file)
             if (lstMedia.ItemsSource == _listLocal)
             {
                 var uniqueItems = new List<MediaItem>();
@@ -1290,7 +1313,6 @@ namespace MediaLedInterfaceNew
 
                 foreach (var item in _listLocal)
                 {
-                    // Lấy kích thước file để so sánh (nếu file lỗi/không tồn tại thì size = -1)
                     long fileSize = -1;
                     try
                     {
@@ -1298,8 +1320,6 @@ namespace MediaLedInterfaceNew
                             fileSize = new System.IO.FileInfo(item.FullPath).Length;
                     }
                     catch { }
-
-                    // Tạo khóa nhận diện: Tên file + Kích thước
                     string key = $"{item.FileName}_{fileSize}";
 
                     if (!seenKeys.Contains(key))
@@ -1308,13 +1328,10 @@ namespace MediaLedInterfaceNew
                         uniqueItems.Add(item);
                     }
                 }
-
-                // Tính số lượng đã xóa
                 removedCount = _listLocal.Count - uniqueItems.Count;
 
                 if (removedCount > 0)
                 {
-                    // Cập nhật lại danh sách chính và danh sách backup
                     _listLocal.Clear();
                     _backupLocal.Clear();
                     foreach (var item in uniqueItems)
@@ -1324,14 +1341,10 @@ namespace MediaLedInterfaceNew
                     }
                 }
             }
-            // 2. XỬ LÝ TAB ONLINE & IPTV (Trùng Tên + Link)
             else if (lstMedia.ItemsSource == _listStream || lstMedia.ItemsSource == _listTv)
             {
-                // Xác định danh sách đang dùng
                 ObservableCollection<MediaItem> currentList = (lstMedia.ItemsSource == _listStream) ? _listStream : _listTv;
                 List<MediaItem> backupList = (lstMedia.ItemsSource == _listStream) ? _backupStream : _backupTv;
-
-                // Group theo Tên + Đường dẫn -> Chỉ lấy mục đầu tiên
                 var uniqueItems = currentList.GroupBy(x => new { x.FileName, x.FullPath })
                                              .Select(g => g.First())
                                              .ToList();
@@ -1354,11 +1367,9 @@ namespace MediaLedInterfaceNew
                 UpdateStatus("⚠️ Tính năng này không hỗ trợ Tab hiện tại.", false, true);
                 return;
             }
-
-            // 3. THÔNG BÁO KẾT QUẢ
             if (removedCount > 0)
             {
-                UpdateListStats(); // Cập nhật lại số lượng trên giao diện
+                UpdateListStats();
                 UpdateStatus($"✅ Đã dọn dẹp {removedCount} mục trùng lặp.", false);
             }
             else
@@ -2426,7 +2437,6 @@ namespace MediaLedInterfaceNew
         }
         private async void OnBtnSaveSession_Click(object sender, RoutedEventArgs e)
         {
-            // Xác định đang ở tab nào dựa vào ItemsSource của ListView
             if (lstMedia.ItemsSource == _listLocal)
             {
                 await Task.Run(() => SaveListToJson(FILE_LOCAL, _listLocal));
@@ -2450,8 +2460,6 @@ namespace MediaLedInterfaceNew
             List<MediaItem> loadedItems = null;
             ObservableCollection<MediaItem> targetList = null;
             List<MediaItem> targetBackup = null;
-
-            // Xác định file cần nạp dựa trên tab hiện tại
             if (lstMedia.ItemsSource == _listLocal)
             {
                 loadedItems = await Task.Run(() => LoadListFromJson(FILE_LOCAL));
@@ -2470,31 +2478,19 @@ namespace MediaLedInterfaceNew
                 targetList = _listTv;
                 targetBackup = _backupTv;
             }
-
-            // Thực hiện GỘP dữ liệu
             if (loadedItems != null && targetList != null)
             {
-                // --- BỎ DÒNG NÀY ĐỂ KHÔNG XÓA DANH SÁCH CŨ ---
-                // targetList.Clear(); 
-                // targetBackup.Clear();
-                // ----------------------------------------------
 
-                int countAdded = 0; // Đếm số lượng thực tế được thêm vào
+                int countAdded = 0;
 
                 foreach (var item in loadedItems)
                 {
-                    // --- KIỂM TRA TRÙNG LẶP ---
-                    // Nếu đường dẫn (FullPath) đã tồn tại trong danh sách thì bỏ qua không thêm nữa
                     bool isExist = targetList.Any(x => x.FullPath == item.FullPath);
                     if (isExist) continue;
-                    // ---------------------------
 
                     targetList.Add(item);
                     targetBackup.Add(item);
                     countAdded++;
-
-                    // LOGIC KHÔI PHỤC THUMBNAIL (Giữ nguyên như cũ)
-                    // 1. Nếu là Tab Local
                     if (targetList == _listLocal && System.IO.File.Exists(item.FullPath))
                     {
                         _ = Task.Run(async () =>
@@ -2515,7 +2511,6 @@ namespace MediaLedInterfaceNew
                             }
                         });
                     }
-                    // 2. Nếu là Tab Online hoặc TV (Dùng PosterUrl)
                     else if ((targetList == _listStream || targetList == _listTv) && !string.IsNullOrEmpty(item.PosterUrl))
                     {
                         _ = Task.Run(async () =>
@@ -4141,6 +4136,7 @@ namespace MediaLedInterfaceNew
 
         private void MainWindow_Closed(object sender, WindowEventArgs args)
         {
+            AppSettings.Save(SETTING_VOLUME, sliderVolume.Value.ToString());
             CloseFsWindow();
             if (_folderWatcher != null)
             {
@@ -5384,22 +5380,48 @@ namespace MediaLedInterfaceNew
                 {
                     if (key != null) key.DeleteValue("MediaLedInterface", false);
                 }
+                string folder = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MediaLedInterfaceNew");
+                if (System.IO.Directory.Exists(folder))
+                {
+                    string[] filesToDelete = { FILE_LOCAL, FILE_ONLINE, FILE_TV };
+                    foreach (var fileName in filesToDelete)
+                    {
+                        string filePath = System.IO.Path.Combine(folder, fileName);
+                        if (System.IO.File.Exists(filePath))
+                        {
+                            System.IO.File.Delete(filePath);
+                        }
+                    }
+                }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Lỗi xóa file cấu hình: " + ex.Message);
+            }
             swStartup.IsOn = false;
             swWakeLock.IsOn = false;
             swSponsorBlock.IsOn = true;
 
-            sliderVolume.Value = 80;
+            sliderVolume.Value = 60;
             sliderSpeedSetting.Value = 1.0;
             sliderSeekSetting.Value = 5;
 
             txtWatchFolder.Text = "";
             txtBgPath.Text = "";
+            txtLibraryStatus.Text = "Trạng thái: Chưa chọn thư mục.";
             _listLibrary.Clear();
             _backupLibrary.Clear();
-            txtLibraryStatus.Text = "Trạng thái: Chưa chọn thư mục.";
 
+            _listLocal.Clear();
+            _backupLocal.Clear();
+
+            _listStream.Clear();
+            _backupStream.Clear();
+
+            _listTv.Clear();
+            _backupTv.Clear();
+
+            _listSearch.Clear();
             sldBright.Value = 0; sldContrast.Value = 0; sldSat.Value = 0; sldHue.Value = 0;
             sldGamma.Value = 0; sldRed.Value = 0; sldGreen.Value = 0; sldBlue.Value = 0;
 
@@ -5409,7 +5431,7 @@ namespace MediaLedInterfaceNew
             {
                 _engine.IsSponsorBlockEnabled = true;
                 _engine.PreventSleep(false);
-                _engine.SetVolume(80);
+                _engine.SetVolume(60);
                 _engine.SetSpeed(1.0);
                 _engine.SetBackgroundImage("");
                 _engine.ResetVideoSettings();
@@ -5422,9 +5444,10 @@ namespace MediaLedInterfaceNew
                 cboColorFx.SelectedIndex = 0;
                 swMotion.IsOn = false; swHdr.IsOn = false; swUpscale.IsOn = false;
                 swDeband.IsOn = false; swDeinterlace.IsOn = false; swShader.IsOn = false;
+                _engine.Stop();
             }
-            UpdateStatus("♻️ Đã khôi phục cài đặt gốc thành công!", true);
             UpdateListStats();
+            UpdateStatus("♻️ Đã khôi phục cài đặt gốc và xóa toàn bộ dữ liệu lưu trữ!", true);
         }
         private void btnDelete_Click(object sender, RoutedEventArgs e)
         {
@@ -6318,7 +6341,6 @@ namespace MediaLedInterfaceNew
         {
             Task.Run(async () =>
             {
-                // Giới hạn số luồng quét cùng lúc để tránh lag app
                 await _metadataSemaphore.WaitAsync();
 
                 try
@@ -6326,15 +6348,12 @@ namespace MediaLedInterfaceNew
                     if (item == null) return;
 
                     string exePath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "yt-dlp.exe");
-                    // Kiểm tra đường dẫn debug nếu đang chạy Visual Studio
                     if (!System.IO.File.Exists(exePath))
                     {
                         string debugPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..\\..\\..\\yt-dlp.exe");
                         if (System.IO.File.Exists(debugPath)) exePath = debugPath;
-                        else return; // Không có tool thì chịu
+                        else return;
                     }
-
-                    // Dùng timeout ngắn (5s) để không treo nếu link chết
                     var startInfo = new ProcessStartInfo
                     {
                         FileName = exePath,
@@ -6349,7 +6368,6 @@ namespace MediaLedInterfaceNew
                     using (var process = new Process { StartInfo = startInfo })
                     {
                         process.Start();
-                        // Đọc dữ liệu JSON trả về
                         string jsonOutput = await process.StandardOutput.ReadToEndAsync();
                         await process.WaitForExitAsync();
 
@@ -6363,11 +6381,8 @@ namespace MediaLedInterfaceNew
                                     string title = node["title"]?.ToString();
                                     string thumbnail = node["thumbnail"]?.ToString();
                                     string uploader = node["uploader"]?.ToString() ?? node["channel"]?.ToString();
-
-                                    // Cập nhật giao diện (UI Thread)
                                     this.DispatcherQueue.TryEnqueue(() =>
                                     {
-                                        // Cập nhật tên nếu trước đó chưa có tên chuẩn
                                         if (!string.IsNullOrEmpty(title) && item.FileName == "Unknown Channel")
                                             item.FileName = title;
 
@@ -6375,14 +6390,9 @@ namespace MediaLedInterfaceNew
                                         {
                                             item.ChannelName = uploader;
                                         }
-
-                                        // --- PHẦN SỬA ĐỔI QUAN TRỌNG Ở ĐÂY ---
                                         if (!string.IsNullOrEmpty(thumbnail))
                                         {
-                                            // 1. Lưu link ảnh vào biến string để ghi ra file JSON sau này
                                             item.PosterUrl = thumbnail;
-
-                                            // 2. Nếu chưa có ảnh hiển thị thì tải về ngay
                                             if (item.Poster == null)
                                             {
                                                 _ = Task.Run(async () =>
@@ -6494,8 +6504,6 @@ namespace MediaLedInterfaceNew
                 rbTV.IsChecked = true;
                 OnNavTabClick(rbTV, null);
             }
-
-            // Tách dòng và loại bỏ dòng trống
             var lines = content.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
 
             string currentName = "Unknown Channel";
@@ -6511,25 +6519,16 @@ namespace MediaLedInterfaceNew
 
                 if (l.StartsWith("#EXTINF"))
                 {
-                    // --- SỬA LỖI 1: RESET BIẾN ---
-                    // Phải reset logo về rỗng khi bắt đầu đọc thông tin kênh mới
                     currentLogo = "";
                     currentName = "Channel";
                     currentGroup = "Chung";
-                    // -----------------------------
-
-                    // Lấy tên kênh
                     int lastComma = l.LastIndexOf(',');
                     if (lastComma != -1 && lastComma < l.Length - 1)
                     {
                         currentName = l.Substring(lastComma + 1).Trim();
                     }
-
-                    // Lấy nhóm
                     var mGroup = System.Text.RegularExpressions.Regex.Match(l, "group-title=\"([^\"]+)\"");
                     if (mGroup.Success) currentGroup = mGroup.Groups[1].Value.Trim();
-
-                    // Lấy Logo (tvg-logo hoặc logo)
                     var mTvgLogo = System.Text.RegularExpressions.Regex.Match(l, "tvg-logo=\"([^\"]+)\"");
                     if (mTvgLogo.Success)
                     {
@@ -6554,12 +6553,7 @@ namespace MediaLedInterfaceNew
                 else if (!l.StartsWith("#"))
                 {
                     if (l.Length < 5) continue;
-
-                    // --- SỬA LỖI 2: CAPTURE BIẾN LOCAL ---
-                    // Tạo biến cục bộ để giữ giá trị logo chuẩn cho item này
-                    // Tránh trường hợp vòng lặp chạy sang kênh khác làm thay đổi logo khi Task chưa kịp chạy
                     string capturedLogo = currentLogo;
-                    // -------------------------------------
 
                     var item = new MediaItem
                     {
@@ -6571,7 +6565,7 @@ namespace MediaLedInterfaceNew
                         UserAgent = currentUa,
                         Referrer = currentRef,
                         Poster = null,
-                        PosterUrl = capturedLogo // Lưu link để phục vụ Save/Restore
+                        PosterUrl = capturedLogo
                     };
 
                     if (!string.IsNullOrEmpty(capturedLogo))
@@ -6581,7 +6575,6 @@ namespace MediaLedInterfaceNew
                             await _logoSemaphore.WaitAsync();
                             try
                             {
-                                // Dùng biến capturedLogo thay vì currentLogo
                                 var img = await LoadImageSecurelyAsync(capturedLogo);
                                 if (img != null)
                                 {
@@ -6597,7 +6590,6 @@ namespace MediaLedInterfaceNew
                     }
                     else
                     {
-                        // Không có logo thì quét metadata
                         FetchMetadataInBackground(item);
                     }
 

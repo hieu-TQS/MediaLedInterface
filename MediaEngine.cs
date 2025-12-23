@@ -87,7 +87,6 @@ namespace MediaLedInterfaceNew
         public bool IsSponsorBlockEnabled { get; set; } = true; public HashSet<string> AllowedSponsorCategories { get; set; } = new HashSet<string>() { "sponsor" }; private string _lastFilterString = "";
         public double GetBufferedPosition()
         {
-            // Lấy thông tin thời gian đã buffer từ MPV
             if (ActivePlayer != null)
             {
                 return ActivePlayer.GetPropertyDouble("demuxer-cache-time");
@@ -1332,7 +1331,6 @@ namespace MediaLedInterfaceNew
 
             try
             {
-                // 1. Lưu lại vị trí hiện tại và URL
                 double currentPos = Position;
                 string currentUrl = ActivePlayer.GetPropertyJson("path").Replace("\"", "");
 
@@ -1341,9 +1339,6 @@ namespace MediaLedInterfaceNew
                     IsChangingQuality = false;
                     return;
                 }
-
-                // 2. QUAN TRỌNG: Dọn dẹp cache cũ để tránh xung đột
-                // Xóa URL cache để buộc các hàm scan định dạng phải chạy lại nếu cần
                 _cachedUrl = "";
                 lock (_cachedFormats)
                 {
@@ -1351,8 +1346,6 @@ namespace MediaLedInterfaceNew
                 }
 
                 ShowOsdText($"⚙️ Đang chuyển sang: {displayName}...");
-
-                // 3. Xử lý logic định dạng (giữ nguyên logic của bạn)
                 string finalFormat = "";
                 bool isDailymotion = currentUrl.Contains("dailymotion.com") || currentUrl.Contains("dai.ly");
 
@@ -1364,19 +1357,12 @@ namespace MediaLedInterfaceNew
                 {
                     finalFormat = isDailymotion ? $"{formatId}/best" : $"{formatId}+bestaudio/best";
                 }
-
-                // 4. Thiết lập lại thuộc tính cho MPV
                 ActivePlayer.SetPropertyString("vid", "auto");
                 ActivePlayer.SetPropertyString("aid", "auto");
                 ActivePlayer.SetPropertyString("ytdl-format", finalFormat);
-
-                // 5. Tải lại file để áp dụng format mới
                 ActivePlayer.DoCommand("loadfile", currentUrl, "replace");
-
-                // 6. Khôi phục lại thời gian đang xem
                 if (currentPos > 0)
                 {
-                    // Đợi 1 chút để stream mới kịp kết nối trước khi Seek
                     await Task.Delay(1500);
                     Seek(currentPos);
                 }
