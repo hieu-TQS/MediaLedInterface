@@ -59,7 +59,7 @@ namespace MediaLedInterfaceNew
         [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
         [DllImport("user32.dll", EntryPoint = "GetWindowLong")] private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
         [DllImport("user32.dll", EntryPoint = "SetWindowLong")] private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-
+        public event Action<string>? OnStatusMessage;
         private const int GWL_STYLE = -16;
         private const int WS_CHILD = 0x40000000;
         public const int WS_POPUP = unchecked((int)0x80000000);
@@ -1520,10 +1520,7 @@ namespace MediaLedInterfaceNew
 
         public void ShowOsdText(string text, int durationMs = 3000)
         {
-            if (ActivePlayer != null)
-            {
-                ActivePlayer.ShowOsdText(text, durationMs);
-            }
+            OnStatusMessage?.Invoke(text);
         }
         public bool IsOnlineMedia()
         {
