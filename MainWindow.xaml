@@ -2201,10 +2201,10 @@
 
         <Grid Grid.Row="1" Grid.ColumnSpan="4" Background="#181818" BorderBrush="#333333" BorderThickness="0,1,0,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="15,0,0,0" Spacing="8">
-                <FontIcon x:Name="iconStatus" Glyph="&#xE946;" FontSize="12" FontFamily="Segoe Fluent Icons" Foreground="#0078D7"/>
+                <FontIcon x:Name="iconStatus" Visibility="Collapsed" Glyph="&#xE946;" FontSize="12" FontFamily="Segoe Fluent Icons" Foreground="#0078D7"/>
                 <TextBlock x:Name="txtAppStatus" 
                                Text="Sẵn sàng" 
-                               Foreground="#D0D0D0" 
+                               Foreground="White" 
                                FontSize="14" 
                                FontFamily="Segoe UI, Segoe Fluent Icons"
                                TextTrimming="CharacterEllipsis" 

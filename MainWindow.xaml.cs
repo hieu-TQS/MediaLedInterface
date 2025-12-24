@@ -916,7 +916,7 @@ namespace MediaLedInterfaceNew
         private void btnReloadKeys_Click(object sender, RoutedEventArgs e)
         {
             KeyManager.LoadKeys();
-            UpdateStatus("✅ Đã cập nhật danh sách API Key mới!", true);
+            UpdateStatus("✅ Đã cập nhật danh sách API Key mới!");
         }
 
         private void lstMedia_DragOver(object sender, DragEventArgs e)
@@ -925,7 +925,7 @@ namespace MediaLedInterfaceNew
             bool isTabLocal = lstMedia.ItemsSource == _listLocal;
             bool isTabTv = lstMedia.ItemsSource == _listTv;
 
-            if (!isTabLocal && !isTabTv)
+            if (!isTabLocal)
             {
                 e.AcceptedOperation = DataPackageOperation.None;
                 e.DragUIOverride.Caption = "Không thể thả vào Tab này";
@@ -1096,7 +1096,7 @@ namespace MediaLedInterfaceNew
 
                         key.SetValue(appName, $"\"{appPath}\" --autostart");
 
-                        UpdateStatus("✅ Đã bật khởi động cùng Windows (Chế độ thu nhỏ).");
+                        UpdateStatus("✅ Đã bật khởi động cùng Windows.");
                     }
                     else
                     {
@@ -1280,7 +1280,7 @@ namespace MediaLedInterfaceNew
                 AppSettings.Save(SETTING_BG_PATH, path);
                 if (_engine != null)
                 {
-                    UpdateStatus("⏳ Đang xử lý và nạp ảnh nền...", true);
+                    UpdateStatus("⏳ Đang xử lý và nạp ảnh nền...");
                     await _engine.SetBackgroundImage(path);
                     if (_playingItem == null)
                     {
@@ -5447,7 +5447,7 @@ namespace MediaLedInterfaceNew
                 _engine.Stop();
             }
             UpdateListStats();
-            UpdateStatus("♻️ Đã khôi phục cài đặt gốc và xóa toàn bộ dữ liệu lưu trữ!", true);
+            UpdateStatus("♻️ Đã khôi phục cài đặt gốc và xóa toàn bộ dữ liệu lưu trữ!");
         }
         private void btnDelete_Click(object sender, RoutedEventArgs e)
         {
