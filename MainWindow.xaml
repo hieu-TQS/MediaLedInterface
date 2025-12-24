@@ -2025,7 +2025,7 @@
                                     <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#40FFFFFF"/>
                                     <SolidColorBrush x:Key="SliderTrackFillPressed" Color="#40FFFFFF"/>
                                 </Slider.Resources>
-                                
+
                             </Slider>
 
                             <Canvas x:Name="cvsSponsor" 

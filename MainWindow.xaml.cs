@@ -1701,7 +1701,7 @@ namespace MediaLedInterfaceNew
                 string savePath = file.Path;
 
                 _isDownloading = true;
-                UpdateStatus($"⏳ Đang chuẩn bị tải {label}...", true);
+                UpdateStatus($"⏳ Đang chuẩn bị tải {label}...");
 
                 _ = _engine.DownloadMediaAsync(url, quality, savePath, (status) =>
                 {
@@ -2023,7 +2023,7 @@ namespace MediaLedInterfaceNew
             int apiPage = pageIndex + 1;
             string apiUrl = $"https://api.dailymotion.com/videos?fields=id,title,thumbnail_240_url,owner.username&search={Uri.EscapeDataString(keyword)}&limit=50&page={apiPage}";
 
-            UpdateStatus($"⏳ Dailymotion: Đang tải trang {apiPage}...", true);
+            UpdateStatus($"⏳ Dailymotion: Đang tải trang {apiPage}...");
 
             try
             {
@@ -4335,7 +4335,7 @@ namespace MediaLedInterfaceNew
                     return;
                 }
 
-                UpdateStatus($"⏳ Đang đọc file links.txt...", true);
+                UpdateStatus($"⏳ Đang đọc file links.txt...");
                 string[] lines = await System.IO.File.ReadAllLinesAsync(FilePath);
                 int count = 0;
 
@@ -4387,7 +4387,7 @@ namespace MediaLedInterfaceNew
                     return;
                 }
 
-                UpdateStatus($"⏳ Đang quét thư mục Playlists...", true);
+                UpdateStatus($"⏳ Đang quét thư mục Playlists...");
                 var files = System.IO.Directory.GetFiles(FolderPath, "*.*")
                             .Where(f => f.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase) ||
                                         f.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase));
@@ -5264,7 +5264,7 @@ namespace MediaLedInterfaceNew
                 var file = await picker.PickSingleFileAsync();
                 if (file != null)
                 {
-                    UpdateStatus($"⏳ Đang đọc file: {file.Name}...", true);
+                    UpdateStatus($"⏳ Đang đọc file: {file.Name}...");
                     var lines = await Windows.Storage.FileIO.ReadLinesAsync(file);
                     int count = 0;
 
@@ -5316,7 +5316,7 @@ namespace MediaLedInterfaceNew
                 var folder = await folderPicker.PickSingleFolderAsync();
                 if (folder != null)
                 {
-                    UpdateStatus($"⏳ Đang quét thư mục: {folder.Name}...", true);
+                    UpdateStatus($"⏳ Đang quét thư mục: {folder.Name}...");
                     var files = await folder.GetFilesAsync();
                     int countM3u = 0;
 
@@ -5674,7 +5674,7 @@ namespace MediaLedInterfaceNew
                 btnPause.Visibility = Visibility.Visible;
                 UpdatePlayingTabIndicator();
 
-                UpdateStatus($"▶ Tiếp tục: {targetItem.FileName}", true);
+                UpdateStatus($"▶ Tiếp tục: {targetItem.FileName}");
             }
             else
             {
@@ -5900,7 +5900,7 @@ namespace MediaLedInterfaceNew
 
             if (countAdded == 0) return;
 
-            UpdateStatus($"📂 Đã thêm {countAdded} file mới.", true);
+            UpdateStatus($"📂 Đã thêm {countAdded} file mới.");
             UpdateListStats();
             if (itemToPlay != null)
             {
@@ -7787,6 +7787,5 @@ namespace MediaLedInterfaceNew
     }
 
 }
-
 
 
