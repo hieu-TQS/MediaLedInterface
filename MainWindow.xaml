@@ -1913,7 +1913,7 @@
 
         </Grid>
 
-        <Rectangle Grid.Column="2" 
+        <Rectangle x:Name="SidebarSplitter" Grid.Column="2" 
            Fill="{StaticResource SurfaceBrush}" 
            PointerEntered="GridSplitter_PointerEntered" 
            PointerExited="GridSplitter_PointerExited" 
@@ -2199,7 +2199,7 @@
             </Grid>
         </Grid>
 
-        <Grid Grid.Row="1" Grid.ColumnSpan="4" Background="#181818" BorderBrush="#333333" BorderThickness="0,1,0,0">
+        <Grid x:Name="StatusBarGrid" Grid.Row="1" Grid.ColumnSpan="4" Background="#181818" BorderBrush="#333333" BorderThickness="0,1,0,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="15,0,0,0" Spacing="8">
                 <FontIcon x:Name="iconStatus" Visibility="Collapsed" Glyph="&#xE946;" FontSize="12" FontFamily="Segoe Fluent Icons" Foreground="#0078D7"/>
                 <TextBlock x:Name="txtAppStatus" 

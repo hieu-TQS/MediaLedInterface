@@ -2807,9 +2807,77 @@ namespace MediaLedInterfaceNew
             }
             return false;
         }
+        private bool _isZenMode = false;
 
+        private async void ToggleZenMode()
+        {
+            _isZenMode = !_isZenMode;
+
+            if (_isZenMode)
+            {
+                // --- CHẾ ĐỘ ẨN (ZEN MODE) ---
+
+                // 1. Ẩn các thành phần giao diện
+                AreaNav.Visibility = Visibility.Collapsed;
+                AreaSidebar.Visibility = Visibility.Collapsed;
+
+                // Ẩn thanh kéo và thanh trạng thái
+                if (SidebarSplitter != null) SidebarSplitter.Visibility = Visibility.Collapsed;
+                if (StatusBarGrid != null) StatusBarGrid.Visibility = Visibility.Collapsed;
+
+                // 2. Thu gọn kích thước các Cột & Dòng về 0
+                ColSidebar.Width = new GridLength(0);
+
+                // --- MỚI THÊM: Thu gọn cột phân cách (4px) về 0 ---
+                if (ColSplitter != null) ColSplitter.Width = new GridLength(0);
+
+                // Thu gọn cột Nav (nếu có)
+                if (ColNav != null) ColNav.Width = new GridLength(0);
+
+                // Thu gọn dòng trạng thái
+                if (RootGrid.RowDefinitions.Count > 1) RootGrid.RowDefinitions[1].Height = new GridLength(0);
+
+                UpdateStatus("Đã BẬT chế độ toàn cảnh (F12)", false);
+            }
+            else
+            {
+                // --- CHẾ ĐỘ HIỆN (BÌNH THƯỜNG) ---
+
+                // 1. Hiện lại thành phần
+                AreaNav.Visibility = Visibility.Visible;
+                AreaSidebar.Visibility = Visibility.Visible;
+                if (SidebarSplitter != null) SidebarSplitter.Visibility = Visibility.Visible;
+                if (StatusBarGrid != null) StatusBarGrid.Visibility = Visibility.Visible;
+
+                // 2. Khôi phục kích thước
+                ColSidebar.Width = new GridLength(310); // Kích thước gốc Sidebar
+
+                // --- MỚI THÊM: Khôi phục cột phân cách về 4px ---
+                if (ColSplitter != null) ColSplitter.Width = new GridLength(4);
+
+                // Khôi phục cột Nav (Auto)
+                if (ColNav != null) ColNav.Width = GridLength.Auto;
+
+                // Khôi phục dòng trạng thái
+                if (RootGrid.RowDefinitions.Count > 1) RootGrid.RowDefinitions[1].Height = new GridLength(24);
+
+                UpdateStatus("Đã TẮT chế độ toàn cảnh", false);
+            }
+
+            // Cập nhật lại giao diện và MPV
+            RootGrid.UpdateLayout();
+            await Task.Delay(20);
+            UpdateMpvLayout();
+        }
         private void SetupGlobalHotkeys()
         {
+            var accF12 = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = Windows.System.VirtualKey.F12 };
+            accF12.Invoked += (s, e) =>
+            {
+                ToggleZenMode();
+                e.Handled = true;
+            };
+            RootGrid.KeyboardAccelerators.Add(accF12);
             var accAltEnter = new Microsoft.UI.Xaml.Input.KeyboardAccelerator
             {
                 Key = Windows.System.VirtualKey.Enter,
