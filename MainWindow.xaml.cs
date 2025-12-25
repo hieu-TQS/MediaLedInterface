@@ -310,6 +310,7 @@ namespace MediaLedInterfaceNew
             UpdateStatus("Hệ thống đã sẵn sàng. Chào mừng bạn!");
             RefreshMonitors();
             UpdateListStats();
+            StartVisualizer();
         }
         private void btnEditYtKey_Click(object sender, RoutedEventArgs e) => KeyManager.OpenFileToEdit("yt");
 
@@ -2765,27 +2766,7 @@ namespace MediaLedInterfaceNew
 
             bool isTvMode = (lstMedia.ItemsSource == _listTv);
             bool isLiveStream = _engine.IsLiveStream();
-            bool shouldShowViz = false;
 
-            bool isUserPaused = (_playingItem != null && _playingItem.IsPaused);
-
-            if (_engine.IsPlaying() && !_engine.IsPaused() && !isUserPaused)
-            {
-                var techInfo = _engine.GetTechnicalInfo();
-                if (!string.IsNullOrEmpty(techInfo.AudioCodec) &&
-                    !techInfo.AudioCodec.Contains("KHÔNG CÓ ÂM THANH"))
-                {
-                    shouldShowViz = true;
-                }
-            }
-            if (shouldShowViz)
-            {
-                StartVisualizer();
-            }
-            else
-            {
-                StopVisualizer();
-            }
             if (isTvMode || isLiveStream)
             {
                 return;

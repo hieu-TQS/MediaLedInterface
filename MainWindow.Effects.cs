@@ -72,42 +72,79 @@ namespace MediaLedInterfaceNew
         private const uint SWP_NOSIZE = 0x0001;
         private const uint SWP_NOZORDER = 0x0004;
         private const uint SWP_FRAMECHANGED = 0x0020;
-
+        private DispatcherTimer _vizUpdateTimer;
+        private double[] _targetBands = new double[9]; // Mảng chứa dữ liệu đích đến từ FFT
+        private DateTime _lastAudioPacketTime = DateTime.MinValue;
 
         private void StartVisualizer()
         {
-            if (_audioCapture != null && _audioCapture.CaptureState == NAudio.CoreAudioApi.CaptureState.Capturing)
-                return;
+            // Luôn hiện Panel
+            if (pnlAudioViz != null) pnlAudioViz.Visibility = Visibility.Visible;
 
+            // Timer vẽ UI: Luôn chạy để animation mượt (kể cả khi pause)
+            if (_vizUpdateTimer == null)
+            {
+                _vizUpdateTimer = new DispatcherTimer();
+                _vizUpdateTimer.Interval = TimeSpan.FromMilliseconds(16);
+                _vizUpdateTimer.Tick += (s, e) => UpdateVisualizerUI();
+            }
+            if (!_vizUpdateTimer.IsEnabled) _vizUpdateTimer.Start();
+
+            // --- LOGIC MỚI: KIỂM TRA TRẠNG THÁI ---
+
+            // Nếu "tai nghe" đang hoạt động tốt -> Không làm gì cả, cứ để nó chạy
+            if (_audioCapture != null && _audioCapture.CaptureState == NAudio.CoreAudioApi.CaptureState.Capturing)
+            {
+                return;
+            }
+
+            // Nếu "tai nghe" tồn tại nhưng đang bị Dừng (Stopped) -> Bật lại
+            if (_audioCapture != null && _audioCapture.CaptureState == NAudio.CoreAudioApi.CaptureState.Stopped)
+            {
+                try { _audioCapture.StartRecording(); } catch { }
+                return;
+            }
+
+            // Chỉ khởi tạo mới khi chưa có (null)
             try
             {
+                // Dọn dẹp cái cũ nếu bị lỗi
+                if (_audioCapture != null)
+                {
+                    _audioCapture.Dispose();
+                    _audioCapture = null;
+                }
+
                 using (var enumerator = new MMDeviceEnumerator())
                 {
                     var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
                     _currentAudioDeviceId = defaultDevice.ID;
                 }
+
                 _audioCapture = new WasapiLoopbackCapture();
                 _audioCapture.DataAvailable += OnAudioDataAvailable;
-                _audioCapture.StartRecording();
 
-                if (pnlAudioViz != null) pnlAudioViz.Visibility = Visibility.Visible;
+                // Tự động hủy nếu thiết bị bị rút ra/lỗi
+                _audioCapture.RecordingStopped += (s, a) =>
+                {
+                    // Không set null ở đây để tránh lỗi null reference khi check trạng thái
+                    // Chỉ log lỗi nếu cần
+                };
+
+                _audioCapture.StartRecording();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("Lỗi khởi động Audio Viz: " + ex.Message);
+                System.Diagnostics.Debug.WriteLine("Audio Viz Error: " + ex.Message);
             }
         }
 
         private void StopVisualizer()
         {
-            if (_audioCapture != null)
-            {
-                _audioCapture.StopRecording();
-                _audioCapture.DataAvailable -= OnAudioDataAvailable;
-                _audioCapture.Dispose();
-                _audioCapture = null;
-            }
-            if (pnlAudioViz != null) pnlAudioViz.Visibility = Visibility.Collapsed;
+            // ĐỂ TRỐNG HÀM NÀY
+            // Lý do: Khi Pause nhạc, ta KHÔNG MUỐN hủy bộ thu âm (WasapiLoopbackCapture).
+            // Nếu hủy, lúc Play lại sẽ bị delay hoặc lỗi không bắt được luồng âm thanh.
+            // Cứ để nó chạy, khi không có nhạc -> Data toàn số 0 -> Cột sóng tự rơi xuống đẹp mắt.
         }
 
         private void CheckAudioDeviceChanged(object sender, object e)
@@ -131,6 +168,10 @@ namespace MediaLedInterfaceNew
         private void OnAudioDataAvailable(object? sender, WaveInEventArgs e)
         {
             if (e.BytesRecorded == 0) return;
+
+            // Cập nhật thời gian nhận tín hiệu để Timer biết là đang có nhạc
+            _lastAudioPacketTime = DateTime.Now;
+
             for (int i = 0; i < e.BytesRecorded; i += 4)
             {
                 float sample = BitConverter.ToSingle(e.Buffer, i);
@@ -146,79 +187,163 @@ namespace MediaLedInterfaceNew
 
         private void CalculateFFT()
         {
+            // 1. Xử lý FFT cơ bản
             NAudio.Dsp.Complex[] fftComplex = new NAudio.Dsp.Complex[FftLength];
             for (int i = 0; i < FftLength; i++)
             {
-                double window = 0.5 * (1.0 - Math.Cos(2.0 * Math.PI * i / (FftLength - 1)));
+                // Window function: Blackman-Harris giúp tách dải tần sạch hơn Hanning
+                double window = 0.42 - 0.5 * Math.Cos(2 * Math.PI * i / (FftLength - 1)) + 0.08 * Math.Cos(4 * Math.PI * i / (FftLength - 1));
                 fftComplex[i].X = (float)(_fftBuffer[i] * window);
                 fftComplex[i].Y = 0;
             }
+
             FastFourierTransform.FFT(true, (int)Math.Log(FftLength, 2.0), fftComplex);
+
+            // 2. Chia dải tần (Tập trung nhiều vào mid/high để 2 bên tháp không bị trống)
             double[] bands = new double[9];
-            bands[0] = GetBandAverage(fftComplex, 0, 2);
-            bands[1] = GetBandAverage(fftComplex, 2, 5);
-            bands[2] = GetBandAverage(fftComplex, 5, 10);
-            bands[3] = GetBandAverage(fftComplex, 10, 20);
-            bands[4] = GetBandAverage(fftComplex, 20, 40);
-            bands[5] = GetBandAverage(fftComplex, 40, 80);
-            bands[6] = GetBandAverage(fftComplex, 80, 150);
-            bands[7] = GetBandAverage(fftComplex, 150, 300);
-            bands[8] = GetBandAverage(fftComplex, 300, 511);
+            bands[0] = GetBandAverage(fftComplex, 0, 2);     // Center (Sub-Bass)
+            bands[1] = GetBandAverage(fftComplex, 3, 5);     // Side 1 (Bass)
+            bands[2] = GetBandAverage(fftComplex, 6, 10);    // Side 1 (Bass)
+            bands[3] = GetBandAverage(fftComplex, 11, 25);   // Side 2 (Low Mid)
+            bands[4] = GetBandAverage(fftComplex, 26, 50);   // Side 2 (Mid)
+            bands[5] = GetBandAverage(fftComplex, 51, 100);  // Side 3 (High Mid)
+            bands[6] = GetBandAverage(fftComplex, 101, 200); // Side 3 (Presence)
+            bands[7] = GetBandAverage(fftComplex, 201, 350); // Side 4 (Brilliance)
+            bands[8] = GetBandAverage(fftComplex, 351, 511); // Side 4 (Air)
+
+            // 3. AGC: Tự động điều chỉnh độ cao tổng thể để không bị kịch trần
             double frameMax = 0;
             for (int i = 0; i < 9; i++) { if (bands[i] > frameMax) frameMax = bands[i]; }
 
             if (frameMax > _currentMaxLevel)
-            {
                 _currentMaxLevel = frameMax;
-            }
             else
-            {
-                _currentMaxLevel *= 0.90;
-                if (_currentMaxLevel < 0.005) _currentMaxLevel = 0.005;
-            }
+                _currentMaxLevel = _currentMaxLevel * 0.99 + frameMax * 0.01; // Giảm chậm để mượt
 
-            double agcFactor = 0.65 / _currentMaxLevel;
-            bool isSilence = frameMax < NOISE_GATE;
-            double[] boosted = new double[9];
+            if (_currentMaxLevel < 0.005) _currentMaxLevel = 0.005;
+            double agcFactor = 0.90 / _currentMaxLevel; // Target 90% chiều cao
+
+            // 4. Áp dụng Curve hình tháp (Pyramid EQ Curve)
+            // Nguyên tắc: Tần số càng cao (chỉ số càng lớn) thì càng phải nhân hệ số lớn
+            // để bù đắp năng lượng yếu, giúp sườn tháp dốc đều thay vì dốc đứng.
+            double[] pyramidMultipliers = new double[]
+            {
+        0.7,  // Band 0 (Center - Bass): Giữ nguyên làm chuẩn
+        1.1,  // Band 1: Boost nhẹ
+        1.1,  // Band 2
+        1.3,  // Band 3: Boost Mid
+        1.3,  // Band 4
+        2.0,  // Band 5: Boost High-Mid mạnh hơn
+        2.0,  // Band 6
+        4.0,  // Band 7: Boost Treble cực mạnh để 2 bên rìa nảy lên
+        1.0   // Band 8
+            };
+
+            bool isSilence = frameMax < 0.0001; // Noise gate
 
             for (int i = 0; i < 9; i++)
             {
                 if (isSilence)
                 {
-                    boosted[i] = 0;
+                    _targetBands[i] = 0;
                 }
                 else
                 {
-                    double val = bands[i] * agcFactor;
-                    if (i == 7) val *= 50.0;
-                    else if (i == 6) val *= 8.0;
-                    else if (i == 8) val *= 7.0;
-                    else if (i == 5) val *= 8.0;
-                    else if (i == 0) val *= 1.0;
-                    else if (i == 1 || i == 2) val *= 1.0;
-                    else if (i == 3 || i == 4) val *= 1.0;
+                    double rawVal = bands[i] * agcFactor;
 
-                    boosted[i] = val;
+                    // Logarithmic scale: Giúp âm thanh nhỏ vẫn hiển thị rõ ràng
+                    double logVal = Math.Sqrt(rawVal);
+
+                    double finalVal = logVal * pyramidMultipliers[i];
+
+                    // Clamp (Cắt ngọn nếu vượt quá 1.0)
+                    if (finalVal > 1.0) finalVal = 1.0;
+
+                    _targetBands[i] = finalVal;
                 }
             }
-            this.DispatcherQueue.TryEnqueue(() =>
-            {
-                UpdateBar(bar5, peak5, boosted[0], 4);
-
-                UpdateBar(bar4, peak4, boosted[1], 3);
-                UpdateBar(bar6, peak6, boosted[2], 5);
-
-                UpdateBar(bar3, peak3, boosted[3], 2);
-                UpdateBar(bar7, peak7, boosted[4], 6);
-
-                UpdateBar(bar2, peak2, boosted[5], 1);
-                UpdateBar(bar8, peak8, boosted[6], 7);
-
-                UpdateBar(bar1, peak1, boosted[7], 0);
-                UpdateBar(bar9, peak9, boosted[8], 8);
-            });
         }
 
+        private void UpdateVisualizerUI()
+        {
+            // Reset nếu mất tín hiệu
+            if ((DateTime.Now - _lastAudioPacketTime).TotalMilliseconds > 150)
+            {
+                Array.Clear(_targetBands, 0, 9);
+            }
+
+            // Mapping hình tháp đối xứng (Center-Out)
+            // Bar5 là đỉnh tháp (Band 0)
+            // Các Bar còn lại tỏa ra 2 bên
+            var bars = new[] { bar5, bar4, bar6, bar3, bar7, bar2, bar8, bar1, bar9 };
+            var peaks = new[] { peak5, peak4, peak6, peak3, peak7, peak2, peak8, peak1, peak9 };
+
+            // Band 0 là Bass (Mạnh nhất) -> Gán cho Bar5 (Đầu mảng bars)
+            // Band 8 là Treble (Yếu nhất) -> Gán cho Bar9 (Cuối mảng bars)
+            var bandIndices = new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+
+            double containerHeight = 100;
+            if (pnlAudioViz.Parent is FrameworkElement parent)
+            {
+                containerHeight = parent.ActualHeight;
+                if (containerHeight < 20) containerHeight = 20;
+            }
+            double maxHeight = containerHeight * 0.95;
+
+            // Tinh chỉnh độ mượt (Animation Physics)
+            double smoothUp = 0.5;   // Tăng tốc độ nảy lên (để bắt beat nhanh)
+            double smoothDown = 0.08; // Rơi xuống vừa phải, tạo cảm giác có trọng lượng
+
+            for (int i = 0; i < 9; i++)
+            {
+                int dataIndex = bandIndices[i];
+                double targetPercent = _targetBands[dataIndex];
+
+                // Tính chiều cao mục tiêu
+                double targetHeight = targetPercent * maxHeight;
+                if (targetHeight < 4) targetHeight = 4;
+
+                // Nội suy tuyến tính (Linear Interpolation) để làm mượt
+                if (targetHeight > _lastLevels[i])
+                {
+                    _lastLevels[i] += (targetHeight - _lastLevels[i]) * smoothUp;
+                }
+                else
+                {
+                    _lastLevels[i] += (targetHeight - _lastLevels[i]) * smoothDown;
+                }
+
+                // Giới hạn biên
+                if (_lastLevels[i] > maxHeight) _lastLevels[i] = maxHeight;
+                if (_lastLevels[i] < 4) _lastLevels[i] = 4;
+
+                // Cập nhật giao diện thanh Bar
+                if (bars[i] != null) bars[i].Height = _lastLevels[i];
+
+                // --- Logic Peak (Dấu gạch ngang) ---
+                // Giúp tạo cảm giác nảy chuyên nghiệp
+                if (_lastLevels[i] >= _currentPeaks[i])
+                {
+                    _currentPeaks[i] = _lastLevels[i];
+                    _peakHoldTimers[i] = 10; // Giữ đỉnh một chút khi nảy lên cao nhất
+                }
+                else
+                {
+                    if (_peakHoldTimers[i] > 0)
+                    {
+                        _peakHoldTimers[i]--;
+                    }
+                    else
+                    {
+                        _currentPeaks[i] -= 1.0; // Tốc độ rơi của Peak
+                    }
+                }
+
+                if (_currentPeaks[i] < 4) _currentPeaks[i] = 4;
+
+                if (peaks[i] != null) peaks[i].Margin = new Thickness(0, 0, 0, _currentPeaks[i]);
+            }
+        }
         private void UpdateBar(Microsoft.UI.Xaml.Shapes.Rectangle? bar, Microsoft.UI.Xaml.Shapes.Rectangle? peakBar, double signalValue, int index)
         {
             if (bar == null || peakBar == null) return;
