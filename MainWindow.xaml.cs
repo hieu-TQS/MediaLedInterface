@@ -1,32 +1,22 @@
 ﻿using Microsoft.UI;
 using Microsoft.UI.Input;
-using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
-using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Win32;
-using NAudio.CoreAudioApi;
-using NAudio.Dsp;
-using NAudio.Wave;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.WindowsRuntime;
-using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.DataTransfer;
@@ -35,9 +25,7 @@ using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.System;
 using WinRT.Interop;
-using static MediaLedInterfaceNew.MediaEngine;
 using Exception = System.Exception;
-using HttpClient = System.Net.Http.HttpClient;
 using HttpMethod = System.Net.Http.HttpMethod;
 using HttpRequestMessage = System.Net.Http.HttpRequestMessage;
 using TimeSpan = System.TimeSpan;
@@ -95,34 +83,11 @@ namespace MediaLedInterfaceNew
         private MediaEngine? _engine;
         private bool _isResizing = false;
         private bool _isInitialized = false;
-        private bool _isLedOn = false;
         private bool _isNavExpanded = false;
         private bool _isPlayerMode = false;
         private PlayerMode _currentMode = PlayerMode.Off;
-        private readonly HttpClient _httpClient = new HttpClient();
-        private static System.Threading.SemaphoreSlim _metadataSemaphore = new System.Threading.SemaphoreSlim(3, 3);
-        private static System.Threading.SemaphoreSlim _logoSemaphore = new System.Threading.SemaphoreSlim(5, 5);
-        private const string MT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-        private ObservableCollection<MediaItem> _listLibrary = new ObservableCollection<MediaItem>();
-        private const string FILE_LOCAL = "data_local.json";
-        private const string FILE_ONLINE = "data_online.json";
-        private const string FILE_TV = "data_tv.json";
-        private List<MediaItem> _backupLibrary = new List<MediaItem>();
         private const string SETTING_SPONSOR = "EnableSponsorBlock";
         private const string SETTING_WAKELOCK = "EnableWakeLock";
-        private const string SETTING_WATCH_FOLDER = "WatchFolderPath";
-        private ObservableCollection<MediaItem> _listLocal = new ObservableCollection<MediaItem>();
-        private ObservableCollection<MediaItem> _listStream = new ObservableCollection<MediaItem>();
-        private ObservableCollection<MediaItem> _listTv = new ObservableCollection<MediaItem>();
-        private ObservableCollection<MediaItem> _listSearch = new ObservableCollection<MediaItem>();
-        private List<MediaItem> _backupLocal = new List<MediaItem>();
-        private List<MediaItem> _backupStream = new List<MediaItem>();
-        private List<MediaItem> _backupTv = new List<MediaItem>();
-        private Random _rng = new Random();
-        private MediaItem? _playingItem = null;
-        private string _currentAudioDeviceId = "";
-        private DispatcherTimer _audioDeviceCheckTimer;
-        private Dictionary<int, string> _youtubePageTokens = new Dictionary<int, string>();
         public static Visibility IsVisibleIf(bool val) => val ? Visibility.Visible : Visibility.Collapsed;
         public static Visibility IsHiddenIf(bool val) => val ? Visibility.Collapsed : Visibility.Visible;
         private DispatcherTimer _progressTimer;
@@ -133,29 +98,14 @@ namespace MediaLedInterfaceNew
         private double _savedVolume = 80;
         private double _seekStep = 5.0;
         private const string SETTING_BG_PATH = "MpvBackgroundPath";
-        private bool _isUserActionStop = false;
         private DispatcherTimer _statusTimer;
-        private bool _isDragging = false;
-        private bool _isEffectResizing = false;
-        private Windows.Foundation.Point _startPoint;
-        private double _orgLeft, _orgTop, _orgWidth, _orgHeight;
-        private Microsoft.UI.Xaml.FrameworkElement? _selectedElement = null;
+
         private string _tickerColor = "&H00FFFFFF";
         private string _savedStatus = "Sẵn sàng.";
         private string _persistentStatus = "Sẵn sàng.";
         private string _inputMode = "";
-        private DispatcherTimer _netTimer;
-        private NetworkInterface? _activeNic;
-        private long _lastBytesRecv = 0;
-        private long _lastBytesSent = 0;
-        private long _sessionDownloaded = 0;
-        private string _currentSsid = "";
-        private MonitorInfo? _selectedMonitor = null;
-        private FileSystemWatcher? _folderWatcher;
         private DispatcherTimer _debounceTimer;
-        private double _orgAspectRatio;
         private const string SETTING_APP_MODE = "AppViewMode";
-        private string _currentResizeMode = "";
         [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr")]
         private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
 
@@ -177,12 +127,6 @@ namespace MediaLedInterfaceNew
         private const long WS_EX_CLIENTEDGE = 0x00000200L;
         private const long WS_EX_STATICEDGE = 0x00020000L;
         private const long WS_EX_WINDOWEDGE = 0x00000100L;
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-        private const uint SWP_NOMOVE = 0x0002;
-        private const uint SWP_NOSIZE = 0x0001;
-        private const uint SWP_NOZORDER = 0x0004;
-        private const uint SWP_FRAMECHANGED = 0x0020;
         [StructLayout(LayoutKind.Sequential)]
         public struct MARGINS
         {
@@ -194,78 +138,9 @@ namespace MediaLedInterfaceNew
 
         [DllImport("dwmapi.dll")]
         private static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref MARGINS margins);
-        public ObservableCollection<MediaItem> CurrentList
-        {
-            get
-            {
-                if (lstMedia.ItemsSource is ObservableCollection<MediaItem> list) return list;
-                return _listLocal;
-            }
-        }
-        private void LoadSystemFonts()
-        {
-            _allSystemFonts.Clear();
-            try
-            {
-                using (var collection = new System.Drawing.Text.InstalledFontCollection())
-                {
-                    var families = collection.Families;
-                    foreach (var family in families)
-                    {
-                        _allSystemFonts.Add(family.Name);
-                    }
-                }
-            }
-            catch
-            {
-                _allSystemFonts.AddRange(new[] { "Arial", "Segoe UI", "Times New Roman" });
-            }
 
-            _allSystemFonts.Sort();
-            cboTickerFont.ItemsSource = _allSystemFonts;
-            if (_allSystemFonts.Contains("Arial")) cboTickerFont.SelectedItem = "Arial";
-            else if (_allSystemFonts.Count > 0) cboTickerFont.SelectedIndex = 0;
-        }
-        private void SaveListToJson(string fileName, object dataList)
-        {
-            try
-            {
-                string folder = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MediaLedInterfaceNew");
-                if (!System.IO.Directory.Exists(folder)) System.IO.Directory.CreateDirectory(folder);
 
-                string filePath = System.IO.Path.Combine(folder, fileName);
 
-                var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
-                string json = System.Text.Json.JsonSerializer.Serialize(dataList, options);
-
-                System.IO.File.WriteAllText(filePath, json);
-                UpdateStatus($"✅ Đã lưu vào {fileName}", false);
-            }
-            catch (Exception ex)
-            {
-                UpdateStatus($"❌ Lỗi lưu file {fileName}: {ex.Message}", false, true);
-            }
-        }
-        private List<MediaItem> LoadListFromJson(string fileName)
-        {
-            try
-            {
-                string folder = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MediaLedInterfaceNew");
-                string filePath = System.IO.Path.Combine(folder, fileName);
-
-                if (System.IO.File.Exists(filePath))
-                {
-                    string json = System.IO.File.ReadAllText(filePath);
-                    var items = System.Text.Json.JsonSerializer.Deserialize<List<MediaItem>>(json);
-                    return items ?? new List<MediaItem>();
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Lỗi đọc {fileName}: {ex.Message}");
-            }
-            return new List<MediaItem>();
-        }
         private void cboTickerFont_KeyUp(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
             var box = sender as ComboBox;
@@ -290,7 +165,6 @@ namespace MediaLedInterfaceNew
                 box.ItemsSource = _allSystemFonts;
             }
         }
-        private List<string> _allSystemFonts = new List<string>();
         private async void btnAddMoreLogo_Click(object sender, RoutedEventArgs e)
         {
             var picker = new Windows.Storage.Pickers.FileOpenPicker();
@@ -306,322 +180,9 @@ namespace MediaLedInterfaceNew
                 AddLogoToCanvas(file.Path);
             }
         }
-        private WasapiLoopbackCapture? _audioCapture;
-        private const int FftLength = 1024;
-        private float[] _fftBuffer = new float[FftLength];
-        private int _fftPos = 0;
-        private double[] _lastLevels = new double[9];
 
-        private double[] _currentPeaks = new double[9];
-        private int[] _peakHoldTimers = new int[9];
-        private const int PEAK_HOLD_FRAMES = 20;
-        private const double PEAK_DROP_SPEED = 0.5;
-        private void StartVisualizer()
-        {
-            if (_audioCapture != null && _audioCapture.CaptureState == NAudio.CoreAudioApi.CaptureState.Capturing)
-                return;
-
-            try
-            {
-                using (var enumerator = new MMDeviceEnumerator())
-                {
-                    var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                    _currentAudioDeviceId = defaultDevice.ID;
-                }
-                _audioCapture = new WasapiLoopbackCapture();
-                _audioCapture.DataAvailable += OnAudioDataAvailable;
-                _audioCapture.StartRecording();
-
-                if (pnlAudioViz != null) pnlAudioViz.Visibility = Visibility.Visible;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("Lỗi khởi động Audio Viz: " + ex.Message);
-            }
-        }
-        private void CheckAudioDeviceChanged(object sender, object e)
-        {
-            try
-            {
-                bool shouldBeRunning = _engine != null && _engine.IsPlaying() && !_engine.IsPaused();
-
-                using (var enumerator = new MMDeviceEnumerator())
-                {
-                    var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                    string newDeviceId = defaultDevice.ID;
-                    if (_currentAudioDeviceId != newDeviceId)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Audio Device Changed: {newDeviceId}");
-
-                        if (_audioCapture != null && _audioCapture.CaptureState == NAudio.CoreAudioApi.CaptureState.Capturing)
-                        {
-                            StopVisualizer();
-                            StartVisualizer();
-                        }
-                        else if (shouldBeRunning)
-                        {
-                            StartVisualizer();
-                        }
-                    }
-                }
-            }
-            catch
-            {
-            }
-        }
-        private void StopVisualizer()
-        {
-            if (_audioCapture != null)
-            {
-                _audioCapture.StopRecording();
-                _audioCapture.DataAvailable -= OnAudioDataAvailable;
-                _audioCapture.Dispose();
-                _audioCapture = null;
-            }
-            if (pnlAudioViz != null) pnlAudioViz.Visibility = Visibility.Collapsed;
-        }
-        private double _currentMaxLevel = 0.01;
-        private const double NOISE_GATE = 0.00025;
         private Random _fakeRnd = new Random();
-        private void OnAudioDataAvailable(object? sender, WaveInEventArgs e)
-        {
-            if (e.BytesRecorded == 0) return;
 
-            for (int i = 0; i < e.BytesRecorded; i += 4)
-            {
-                float sample = BitConverter.ToSingle(e.Buffer, i);
-                _fftBuffer[_fftPos] = sample;
-                _fftPos++;
-                if (_fftPos >= FftLength)
-                {
-                    _fftPos = 0;
-                    CalculateFFT();
-                }
-            }
-        }
-
-        private void CalculateFFT()
-        {
-            NAudio.Dsp.Complex[] fftComplex = new NAudio.Dsp.Complex[FftLength];
-            for (int i = 0; i < FftLength; i++)
-            {
-                double window = 0.5 * (1.0 - Math.Cos(2.0 * Math.PI * i / (FftLength - 1)));
-                fftComplex[i].X = (float)(_fftBuffer[i] * window);
-                fftComplex[i].Y = 0;
-            }
-            FastFourierTransform.FFT(true, (int)Math.Log(FftLength, 2.0), fftComplex);
-            double[] bands = new double[9];
-            bands[0] = GetBandAverage(fftComplex, 0, 2);
-            bands[1] = GetBandAverage(fftComplex, 2, 5);
-            bands[2] = GetBandAverage(fftComplex, 5, 10);
-            bands[3] = GetBandAverage(fftComplex, 10, 20);
-            bands[4] = GetBandAverage(fftComplex, 20, 40);
-            bands[5] = GetBandAverage(fftComplex, 40, 80);
-            bands[6] = GetBandAverage(fftComplex, 80, 150);
-            bands[7] = GetBandAverage(fftComplex, 150, 300);
-            bands[8] = GetBandAverage(fftComplex, 300, 511);
-            double frameMax = 0;
-            for (int i = 0; i < 9; i++) { if (bands[i] > frameMax) frameMax = bands[i]; }
-
-            if (frameMax > _currentMaxLevel)
-            {
-                _currentMaxLevel = frameMax;
-            }
-            else
-            {
-                _currentMaxLevel *= 0.90;
-                if (_currentMaxLevel < 0.005) _currentMaxLevel = 0.005;
-            }
-
-            double agcFactor = 0.65 / _currentMaxLevel;
-            bool isSilence = frameMax < NOISE_GATE;
-            double[] boosted = new double[9];
-
-            for (int i = 0; i < 9; i++)
-            {
-                if (isSilence)
-                {
-                    boosted[i] = 0;
-                }
-                else
-                {
-                    double val = bands[i] * agcFactor;
-                    if (i == 7) val *= 50.0;
-                    else if (i == 6) val *= 8.0;
-                    else if (i == 8) val *= 7.0;
-                    else if (i == 5) val *= 8.0;
-                    else if (i == 0) val *= 1.0;
-                    else if (i == 1 || i == 2) val *= 1.0;
-                    else if (i == 3 || i == 4) val *= 1.0;
-
-                    boosted[i] = val;
-                }
-            }
-            this.DispatcherQueue.TryEnqueue(() =>
-            {
-                UpdateBar(bar5, peak5, boosted[0], 4);
-
-                UpdateBar(bar4, peak4, boosted[1], 3);
-                UpdateBar(bar6, peak6, boosted[2], 5);
-
-                UpdateBar(bar3, peak3, boosted[3], 2);
-                UpdateBar(bar7, peak7, boosted[4], 6);
-
-                UpdateBar(bar2, peak2, boosted[5], 1);
-                UpdateBar(bar8, peak8, boosted[6], 7);
-
-                UpdateBar(bar1, peak1, boosted[7], 0);
-                UpdateBar(bar9, peak9, boosted[8], 8);
-            });
-        }
-        private void UpdateBar(Microsoft.UI.Xaml.Shapes.Rectangle? bar, Microsoft.UI.Xaml.Shapes.Rectangle? peakBar, double signalValue, int index)
-        {
-            if (bar == null || peakBar == null) return;
-            double containerHeight = 100;
-            if (pnlAudioViz.Parent is FrameworkElement parent)
-            {
-                containerHeight = parent.ActualHeight;
-                if (containerHeight < 20) containerHeight = 20;
-            }
-            double maxHeight = containerHeight * 0.95;
-            double targetHeight = signalValue * maxHeight;
-            if (targetHeight > maxHeight) targetHeight = maxHeight;
-            if (targetHeight < 4) targetHeight = 4;
-
-            double smoothFactorUp = 0.2;
-            double smoothFactorDown = 0.1;
-
-            if (targetHeight > _lastLevels[index])
-            {
-                _lastLevels[index] += (targetHeight - _lastLevels[index]) * smoothFactorUp;
-            }
-            else
-            {
-                _lastLevels[index] += (targetHeight - _lastLevels[index]) * smoothFactorDown;
-            }
-
-            if (_lastLevels[index] > maxHeight) _lastLevels[index] = maxHeight;
-            if (_lastLevels[index] < 4) _lastLevels[index] = 4;
-
-            bar.Height = _lastLevels[index];
-
-            if (_lastLevels[index] > _currentPeaks[index])
-            {
-                _currentPeaks[index] = _lastLevels[index];
-                _peakHoldTimers[index] = PEAK_HOLD_FRAMES;
-            }
-            else
-            {
-                if (_peakHoldTimers[index] > 0)
-                {
-                    _peakHoldTimers[index]--;
-                }
-                else
-                {
-                    _currentPeaks[index] -= 0.3;
-                }
-            }
-
-            if (_currentPeaks[index] > maxHeight) _currentPeaks[index] = maxHeight;
-            if (_currentPeaks[index] < 4) _currentPeaks[index] = 4;
-
-            peakBar.Margin = new Microsoft.UI.Xaml.Thickness(0, 0, 0, _currentPeaks[index]);
-        }
-        private double GetBandAverage(NAudio.Dsp.Complex[] data, int startIdx, int endIdx)
-        {
-            double sum = 0;
-            for (int i = startIdx; i <= endIdx && i < data.Length; i++)
-            {
-                double magnitude = Math.Sqrt(data[i].X * data[i].X + data[i].Y * data[i].Y);
-                sum += magnitude;
-            }
-            return sum / (endIdx - startIdx + 1);
-        }
-
-        private async Task ApplyLogoLogic()
-        {
-            if (_engine == null) return;
-
-            if (swLogo.IsOn)
-            {
-                var logoList = new List<LogoLayer>();
-                foreach (var child in OverlayCanvas.Children)
-                {
-                    if (child is Grid g && g.Tag is string originalPath)
-                    {
-
-                        int w = (int)g.ActualWidth;
-                        int h = (int)g.ActualHeight;
-                        if (w <= 0) w = 100;
-                        if (h <= 0) h = 100;
-
-                        double l = Canvas.GetLeft(g);
-                        double t = Canvas.GetTop(g);
-
-                        string optimizedPath = await Task.Run(() => CreateResizedLogoCache(originalPath, w, h));
-
-                        logoList.Add(new LogoLayer
-                        {
-                            Path = optimizedPath,
-                            X = (int)l,
-                            Y = (int)t,
-                            Width = w,
-                            Height = h
-                        });
-                    }
-                }
-                await _engine.UpdateLogoLayers(logoList);
-                UpdateStatus($"✅ Đã cập nhật {logoList.Count} logo (Đã tối ưu hóa).");
-            }
-            else
-            {
-                await _engine.UpdateLogoLayers(null);
-                UpdateStatus("Đã tắt Logo.");
-            }
-        }
-        private string CreateResizedLogoCache(string sourcePath, int targetWidth, int targetHeight)
-        {
-            try
-            {
-                if (!System.IO.File.Exists(sourcePath)) return sourcePath;
-
-                string tempFolder = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "MediaLed_Cache");
-                if (!System.IO.Directory.Exists(tempFolder))
-                {
-                    System.IO.Directory.CreateDirectory(tempFolder);
-                }
-
-                string fileName = System.IO.Path.GetFileNameWithoutExtension(sourcePath);
-                string ext = System.IO.Path.GetExtension(sourcePath);
-                string cacheFileName = $"{fileName}_{targetWidth}x{targetHeight}{ext}";
-                string destPath = System.IO.Path.Combine(tempFolder, cacheFileName);
-
-                if (System.IO.File.Exists(destPath)) return destPath;
-
-                using (var originalImage = System.Drawing.Image.FromFile(sourcePath))
-                {
-                    using (var resizedBitmap = new System.Drawing.Bitmap(targetWidth, targetHeight))
-                    {
-                        using (var graphics = System.Drawing.Graphics.FromImage(resizedBitmap))
-                        {
-                            graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
-                            graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-                            graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
-                            graphics.DrawImage(originalImage, 0, 0, targetWidth, targetHeight);
-                        }
-                        resizedBitmap.Save(destPath, originalImage.RawFormat);
-                    }
-                }
-
-                return destPath;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Resize Logo Error: {ex.Message}");
-                return sourcePath;
-            }
-        }
         private string GetMpvColor(string inputHex)
         {
             try
@@ -662,57 +223,7 @@ namespace MediaLedInterfaceNew
                 return "&H00000000";
             }
         }
-        private async Task ApplyTickerLogic()
-        {
-            if (_engine == null) return;
-            if (swTicker.IsOn && (_engine.IsShowingWallpaper || _engine.IsCurrentContentImage))
-            {
-                swTicker.IsOn = false;
-                UpdateStatus("⚠️ Chữ chạy chỉ hoạt động trên Video.", false, true);
-                if (DraggableText != null) DraggableText.Visibility = Visibility.Collapsed;
-                return;
-            }
 
-            if (swTicker.IsOn && !string.IsNullOrEmpty(txtTickerInput.Text))
-            {
-                string finalTextColorMpv = GetMpvColor(_tickerTextColor);
-                string finalBgColorMpv = GetMpvColor(_tickerBgColor);
-                bool useBg = swTickerBg.IsOn;
-
-
-                if (finalBgColorMpv.StartsWith("&HFF"))
-                {
-                    useBg = false;
-                }
-                double uiTop = Microsoft.UI.Xaml.Controls.Canvas.GetTop(DraggableText);
-                int exactY = Math.Clamp((int)uiTop, 0, 2000);
-
-                double startTime = (radTickerTime.SelectedIndex == 1) ?
-                    GetScheduledTime() : _engine.Position;
-                await _engine.ShowTicker(
-            txtTickerInput.Text,
-            sldTickerSpeed.Value,
-            finalTextColorMpv,
-            exactY,
-            startTime,
-            useBg,
-            finalBgColorMpv,
-            (int)sldTickerBgSize.Value,
-            cboTickerFont.SelectedItem?.ToString() ?? "Arial",
-            chkFullWidth.IsChecked == true,
-            (int)nbLoopCount.Value,
-            btnBold.IsChecked == true,
-            btnItalic.IsChecked == true
-                );
-
-                UpdateStatus($"✅ Đã chạy chữ (Màu nền: {_tickerBgColor ?? "Mặc định"})");
-            }
-            else
-            {
-                await _engine.HideTicker();
-                UpdateStatus("Đã tắt chữ chạy.");
-            }
-        }
 
         private double GetScheduledTime()
         {
@@ -721,119 +232,7 @@ namespace MediaLedInterfaceNew
             double.TryParse(txtS.Text, out double s);
             return (h * 3600) + (m * 60) + s;
         }
-        private void AddLogoToCanvas(string path)
-        {
-            if (swLogo.IsOn == false)
-            {
-                swLogo.IsOn = true;
 
-            }
-
-            var grid = new Grid();
-
-            grid.Width = 200;
-            grid.Height = 200;
-            grid.Tag = path;
-            grid.IsHitTestVisible = true;
-
-            var menu = new MenuFlyout();
-            var deleteItem = new MenuFlyoutItem { Text = "Xóa Logo", Icon = new FontIcon { Glyph = "\uE74D" } };
-            deleteItem.Click += (s, e) =>
-            {
-                OverlayCanvas.Children.Remove(grid);
-                _selectedElement = null;
-            };
-            menu.Items.Add(deleteItem);
-            grid.ContextFlyout = menu;
-            grid.PointerPressed += Element_PointerPressed;
-            grid.PointerMoved += Element_PointerMoved;
-            grid.PointerReleased += Element_PointerReleased;
-            grid.KeyDown += (s, e) =>
-            {
-                if (e.Key == Windows.System.VirtualKey.Delete)
-                {
-                    OverlayCanvas.Children.Remove(grid);
-                    _selectedElement = null;
-                }
-            };
-            var bmp = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(path));
-            var img = new Microsoft.UI.Xaml.Controls.Image();
-            img.Source = bmp;
-            img.Stretch = Microsoft.UI.Xaml.Media.Stretch.Fill;
-
-            bmp.ImageOpened += (s, e) =>
-            {
-                double w = bmp.PixelWidth;
-                double h = bmp.PixelHeight;
-
-                if (w > 0 && h > 0)
-                {
-                    double ratio = w / h;
-                    grid.Width = 200;
-                    grid.Height = 200 / ratio;
-                }
-            };
-
-            grid.Children.Add(img);
-            var border = new Border();
-            border.BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Cyan);
-            border.BorderThickness = new Thickness(1);
-
-            var rectDash = new Microsoft.UI.Xaml.Shapes.Rectangle();
-            rectDash.Stroke = new SolidColorBrush(Microsoft.UI.Colors.Cyan);
-            rectDash.StrokeThickness = 2;
-            rectDash.StrokeDashArray = new DoubleCollection { 4, 2 };
-
-            grid.Children.Add(border);
-            grid.Children.Add(rectDash);
-            var btnDelete = new Button();
-            btnDelete.Width = 24; btnDelete.Height = 24;
-            btnDelete.Padding = new Thickness(0);
-            btnDelete.CornerRadius = new CornerRadius(12);
-            btnDelete.Background = new SolidColorBrush(Microsoft.UI.Colors.Red);
-            btnDelete.HorizontalAlignment = HorizontalAlignment.Right;
-            btnDelete.VerticalAlignment = VerticalAlignment.Top;
-            btnDelete.Margin = new Thickness(0, -12, -12, 0);
-            btnDelete.Content = new FontIcon { Glyph = "\uE711", FontSize = 12, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White) };
-            btnDelete.Click += (s, e) => { OverlayCanvas.Children.Remove(grid); _selectedElement = null; };
-            btnDelete.PointerPressed += (s, e) => e.Handled = true;
-            grid.Children.Add(btnDelete);
-            Microsoft.UI.Xaml.Shapes.Ellipse CreateHandle(string tag, HorizontalAlignment h, VerticalAlignment v, string cursorIcon)
-            {
-                var el = new Microsoft.UI.Xaml.Shapes.Ellipse();
-                el.Width = 16; el.Height = 16;
-                el.Fill = new SolidColorBrush(Microsoft.UI.Colors.White);
-                el.Stroke = new SolidColorBrush(Microsoft.UI.Colors.Cyan);
-                el.StrokeThickness = 2;
-                el.HorizontalAlignment = h;
-                el.VerticalAlignment = v;
-                el.Tag = tag;
-                double mRight = (h == HorizontalAlignment.Right) ? -8 : 0;
-                double mBottom = (v == VerticalAlignment.Bottom) ? -8 : 0;
-                el.Margin = new Thickness(0, 0, mRight, mBottom);
-
-                el.PointerPressed += Resize_PointerPressed;
-                el.PointerMoved += Resize_PointerMoved;
-                el.PointerReleased += Resize_PointerReleased;
-                el.PointerEntered += (s, e) =>
-                {
-                    if (cursorIcon == "NWSE") SetCursor(el, Microsoft.UI.Input.InputSystemCursorShape.SizeNorthwestSoutheast);
-                    else if (cursorIcon == "WE") SetCursor(el, Microsoft.UI.Input.InputSystemCursorShape.SizeWestEast);
-                    else if (cursorIcon == "NS") SetCursor(el, Microsoft.UI.Input.InputSystemCursorShape.SizeNorthSouth);
-                };
-                el.PointerExited += (s, e) => ResetCursor(el);
-                return el;
-            }
-
-            grid.Children.Add(CreateHandle("Right", HorizontalAlignment.Right, VerticalAlignment.Center, "WE"));
-            grid.Children.Add(CreateHandle("Bottom", HorizontalAlignment.Center, VerticalAlignment.Bottom, "NS"));
-            grid.Children.Add(CreateHandle("Corner", HorizontalAlignment.Right, VerticalAlignment.Bottom, "NWSE"));
-            Canvas.SetLeft(grid, 100);
-            Canvas.SetTop(grid, 100);
-            OverlayCanvas.Children.Add(grid);
-
-            UpdateStatus("Đã thêm logo (Tỷ lệ gốc).");
-        }
         private async void MainWindow_Activated(object sender, WindowActivatedEventArgs e)
         {
             if (_isInitialized) return;
@@ -873,6 +272,7 @@ namespace MediaLedInterfaceNew
                 string savedMode = AppSettings.Get(SETTING_APP_MODE);
                 bool isPlayerStart = savedMode == "True";
                 btnModeSwitch.IsChecked = isPlayerStart;
+                _isPlayerMode = isPlayerStart;
                 if (isPlayerStart)
                 {
                     await Task.Delay(300);
@@ -1186,63 +586,187 @@ namespace MediaLedInterfaceNew
             });
             System.Environment.Exit(0);
         }
-        private void RefreshMonitors()
+        [DllImport("user32.dll")]
+        static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr lprcClip, MonitorEnumDelegate lpfnEnum, IntPtr dwData);
+        delegate bool MonitorEnumDelegate(IntPtr hMonitor, IntPtr hdcMonitor, ref RectStruct lprcMonitor, IntPtr dwData);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RectStruct { public int Left; public int Top; public int Right; public int Bottom; }
+        public class MyMonitorInfo
         {
-            if (_engine == null) return;
+            public string Name { get; set; }
+            public MediaEngine.RECT Rect { get; set; }
+            public IntPtr Handle { get; set; }
+        }
 
-            var currentMonitorInfo = _engine.GetCurrentAppMonitor();
-            _lastMonitorHandle = currentMonitorInfo.Handle;
-            var secondaryMonitors = _engine.GetSecondaryMonitors();
-            bool isValidSecondary = secondaryMonitors.Count > 0 && !secondaryMonitors[0].IsPrimary;
-            if (isValidSecondary)
+        [DllImport("user32.dll")]
+        static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+        private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
+        private List<MyMonitorInfo> GetSystemMonitors()
+        {
+            var allMonitors = new List<MyMonitorInfo>();
+            int count = 0;
+            IntPtr appHwnd = WindowNative.GetWindowHandle(this);
+            IntPtr appMonitorHandle = MonitorFromWindow(appHwnd, MONITOR_DEFAULTTONEAREST);
+
+            try
             {
-                cboMonitorOutput.ItemsSource = secondaryMonitors;
-                cboMonitorOutput.SelectedIndex = 0;
-                _selectedMonitor = secondaryMonitors[0];
-                btnToggleLed.IsEnabled = true;
-                btnToggleLed.Opacity = 1.0;
-
-                string msg = $"✅ Smart Detect:\n" +
-                             $"• App đang ở: {currentMonitorInfo.Name}\n" +
-                             $"• Auto Output: {_selectedMonitor.Name}";
-
-                txtMonitorStatus.Text = msg;
-                txtMonitorStatus.Foreground = new SolidColorBrush(Microsoft.UI.Colors.LimeGreen);
-
-                UpdateStatus($"Đã phát hiện {_selectedMonitor.Name}. Sẵn sàng xuất hình.");
+                EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero,
+                    delegate (IntPtr hMonitor, IntPtr hdcMonitor, ref RectStruct lprcMonitor, IntPtr dwData)
+                    {
+                        count++;
+                        int w = lprcMonitor.Right - lprcMonitor.Left;
+                        int h = lprcMonitor.Bottom - lprcMonitor.Top;
+                        var info = new MyMonitorInfo
+                        {
+                            Handle = hMonitor,
+                            Name = $"Màn hình {count} ({w}x{h})",
+                            Rect = new MediaEngine.RECT
+                            {
+                                left = lprcMonitor.Left,
+                                top = lprcMonitor.Top,
+                                right = lprcMonitor.Right,
+                                bottom = lprcMonitor.Bottom
+                            }
+                        };
+                        allMonitors.Add(info);
+                        return true;
+                    }, IntPtr.Zero);
+            }
+            catch { }
+            var externalMonitors = allMonitors.Where(m => m.Handle != appMonitorHandle).ToList();
+            if (externalMonitors.Count > 0)
+            {
+                return externalMonitors;
+            }
+            return allMonitors;
+        }
+        private void swLedMode_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (swLedMode.IsOn)
+            {
+                EnableManualControls(true);
             }
             else
             {
-                cboMonitorOutput.ItemsSource = null;
-                cboMonitorOutput.PlaceholderText = "Chưa kết nối màn hình phụ";
-                _selectedMonitor = null;
-                if (_isLedOn) btnToggleLed_Click(null, null);
-                btnToggleLed.IsEnabled = false;
-                btnToggleLed.Opacity = 0.3;
+                EnableManualControls(false);
+            }
+            ApplyLedConfig();
+        }
+        private void EnableManualControls(bool isManual)
+        {
+            if (pnlManualLed == null || cboMonitorOutput == null) return;
 
-                txtMonitorStatus.Text = $"⚠️ Đang ở chế độ 1 màn hình (hoặc Duplicate). Vui lòng cắm cáp HDMI/DP/VGA/DVI; chuyển chế độ mở rộng (Extend) để kích hoạt tính năng này.";
-                txtMonitorStatus.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
+            if (isManual)
+            {
+                pnlManualLed.Visibility = Visibility.Visible;
+
+                cboMonitorOutput.IsEnabled = false;
+                if (btnRefreshMonitors != null) btnRefreshMonitors.IsEnabled = false;
+                if (lblMonitorSelect != null) lblMonitorSelect.Opacity = 0.5;
+            }
+            else
+            {
+                pnlManualLed.Visibility = Visibility.Collapsed;
+
+                cboMonitorOutput.IsEnabled = true;
+                if (btnRefreshMonitors != null) btnRefreshMonitors.IsEnabled = true;
+                if (lblMonitorSelect != null) lblMonitorSelect.Opacity = 1.0;
             }
         }
-        private IntPtr _lastMonitorHandle = IntPtr.Zero;
-
-        private void cboMonitorOutput_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void btnLedMove_Click(object sender, RoutedEventArgs e)
         {
-            if (cboMonitorOutput.SelectedItem is MonitorInfo monitor)
+            if (nbLedX == null || nbLedY == null || sldLedStep == null) return;
+
+            if (sender is Button btn && btn.Tag is string direction)
             {
-                _selectedMonitor = monitor;
-                if (_isLedOn && _engine != null)
+                double step = sldLedStep.Value;
+                double currentX = nbLedX.Value;
+                double currentY = nbLedY.Value;
+                switch (direction)
                 {
-                    _engine.SetLedScreen(false, new MediaEngine.RECT());
-                    _engine.SetLedScreen(true, _selectedMonitor.Rect);
+                    case "Up": currentY -= step; break;
+                    case "Down": currentY += step; break;
+                    case "Left": currentX -= step; break;
+                    case "Right": currentX += step; break;
+                }
+                nbLedX.Value = currentX;
+                nbLedY.Value = currentY;
+                if (swLedMode != null && swLedMode.IsOn)
+                {
+                    ApplyLedConfig();
                 }
             }
         }
+        private void RefreshMonitors()
+        {
+            _isRefreshing = true;
+            try
+            {
+                cboMonitorOutput.ItemsSource = null;
+                var list = GetSystemMonitors();
+
+                if (list.Count > 0)
+                {
+                    cboMonitorOutput.ItemsSource = list;
+                    cboMonitorOutput.DisplayMemberPath = "Name";
+                    cboMonitorOutput.SelectedIndex = 0;
+
+                    txtMonitorStatus.Text = $"Đã tìm thấy {list.Count} màn hình xuất.";
+                }
+                else
+                {
+                    txtMonitorStatus.Text = "Không tìm thấy màn hình nào.";
+                }
+            }
+            catch (Exception ex)
+            {
+                txtMonitorStatus.Text = "Lỗi quét màn hình: " + ex.Message;
+            }
+            finally
+            {
+                _isRefreshing = false;
+                if (cboMonitorOutput.Items.Count > 0)
+                    cboMonitorOutput_SelectionChanged(null, null);
+            }
+        }
+
+        private void cboMonitorOutput_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isRefreshing) return;
+
+            if (cboMonitorOutput.SelectedItem is MyMonitorInfo monitor)
+            {
+                _selectedMonitor = new MediaEngine.MonitorInfo
+                {
+                    Name = monitor.Name,
+                    Rect = monitor.Rect
+                };
+                if (nbLedX != null) nbLedX.Value = monitor.Rect.left;
+                if (nbLedY != null) nbLedY.Value = monitor.Rect.top;
+                if (nbLedWidth != null) nbLedWidth.Value = monitor.Rect.right - monitor.Rect.left;
+                if (nbLedHeight != null) nbLedHeight.Value = monitor.Rect.bottom - monitor.Rect.top;
+                if (!swLedMode.IsOn)
+                {
+                    if (_isLedOn && _engine != null)
+                    {
+                        _engine.SetLedScreen(true, monitor.Rect);
+                        txtMonitorStatus.Text = $"✅ Đã cập nhật vùng phát: {monitor.Name}";
+                    }
+                    else
+                    {
+                        txtMonitorStatus.Text = $"Đã chọn màn hình: {monitor.Name}. (Chờ bật LED)";
+                    }
+                }
+            }
+        }
+        private bool _isRefreshing = false;
         private void btnRefreshMonitors_Click(object sender, RoutedEventArgs e)
         {
             RefreshMonitors();
-            UpdateStatus("Đã quét lại danh sách màn hình.");
         }
+
+
 
         private void LoadBackgroundSetting()
         {
@@ -1425,6 +949,48 @@ namespace MediaLedInterfaceNew
             _engine.Seek(newPos);
             UpdateStatus($"⏪ Lùi {_seekStep}s", false);
         }
+        private void chkManualLed_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            if (pnlManualLed == null || cboMonitorOutput == null) return;
+
+            bool isManual = swLedMode.IsOn == true;
+            pnlManualLed.Visibility = isManual ? Visibility.Visible : Visibility.Collapsed;
+            cboMonitorOutput.IsEnabled = true;
+            if (_isLedOn)
+            {
+                ApplyLedConfig();
+            }
+        }
+
+
+        private void btnApplyManualLed_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyLedConfig();
+            txtMonitorStatus.Text = "Đã áp dụng cấu hình thủ công.";
+        }
+        private void ApplyLedConfig()
+        {
+            if (_engine == null) return;
+            if (!_isLedOn) return;
+
+            if (swLedMode.IsOn == true)
+            {
+                int x = (int)nbLedX.Value;
+                int y = (int)nbLedY.Value;
+                int w = (int)nbLedWidth.Value;
+                int h = (int)nbLedHeight.Value;
+
+                var customRect = new MediaEngine.RECT { left = x, top = y, right = x + w, bottom = y + h };
+                _engine.SetLedScreen(true, customRect);
+            }
+            else
+            {
+                if (_selectedMonitor != null)
+                {
+                    _engine.SetLedScreen(true, _selectedMonitor.Rect);
+                }
+            }
+        }
         private void btnForward_Click(object sender, RoutedEventArgs e)
         {
             if (_engine == null) return;
@@ -1455,15 +1021,7 @@ namespace MediaLedInterfaceNew
             UpdateStatus($"⏩ Tiến {_seekStep}s", false);
         }
 
-        private void btnStop_Click(object sender, RoutedEventArgs e)
-        {
-            _isUserActionStop = true;
-            StopComplete();
-            ClearAllSponsorMarks();
-            UpdateStatus("⏹ Đã dừng hẳn.", true);
-        }
 
-        private bool _isInternalFullscreen = false;
         private RectInt32 _lastWindowRect;
         private bool _isDownloading = false;
 
@@ -1647,11 +1205,19 @@ namespace MediaLedInterfaceNew
                             dlSubItem.Items.Add(vidDl);
                         }
                     }
+                    else
+                    {
+                        dlSubItem.Items.Add(new MenuFlyoutSeparator());
+                        var rawDl = new MenuFlyoutItem { Text = "🎬 Tải Luồng Gốc (Stream/Raw)" };
+                        rawDl.Click += (s, a) => HandleDownload("best");
+                        dlSubItem.Items.Add(rawDl);
+                    }
                 }
                 else dlSubItem.Items.Add(new MenuFlyoutItem { Text = "Không khả dụng cho file nội bộ", IsEnabled = false });
                 menu.Items.Add(dlSubItem);
             }
             if (sender is FrameworkElement senderElement) menu.ShowAt(senderElement);
+
         }
 
         private void swMotion_Toggled(object sender, RoutedEventArgs e)
@@ -1720,72 +1286,6 @@ namespace MediaLedInterfaceNew
             }
         }
 
-        private void StopComplete()
-        {
-            if (_reconnectTimer != null) _reconnectTimer.Stop();
-            if (_engine != null)
-            {
-
-                _engine.Stop();
-
-            }
-            btnPlay.Visibility = Visibility.Visible;
-            btnPause.Visibility = Visibility.Collapsed;
-            timelineSlider.Value = 0;
-            txtCurrentTime.Text = "00:00";
-            if (!_isUserActionStop && lstMedia.ItemsSource == _listTv && lstMedia.SelectedItem != null)
-            {
-                UpdateStatus("⚠️ Mất tín hiệu. Thử lại sau 3s...", false, true);
-                _reconnectTimer.Start();
-            }
-            if (_playingItem != null)
-            {
-                _playingItem.IsPlaying = false;
-                _playingItem.IsPaused = false;
-                _playingItem = null;
-            }
-            UpdatePlayingTabIndicator();
-            if (CurrentList != null)
-            {
-                foreach (var item in CurrentList)
-                {
-                    item.IsPlaying = false;
-                    item.IsPaused = false;
-                }
-            }
-
-            if (cvsSponsor != null) cvsSponsor.Children.Clear();
-        }
-        private void btnPrev_Click(object sender, RoutedEventArgs e)
-        {
-            if (CurrentList.Count == 0) return;
-
-            int newIndex = -1;
-            int currentIndex = lstMedia.SelectedIndex;
-            if (_currentMode == PlayerMode.Shuffle)
-            {
-                newIndex = _rng.Next(CurrentList.Count);
-            }
-            else
-            {
-                if (currentIndex > 0)
-                {
-                    newIndex = currentIndex - 1;
-                }
-                else
-                {
-                    newIndex = CurrentList.Count - 1;
-                }
-            }
-
-            if (newIndex >= 0)
-            {
-                lstMedia.SelectedIndex = newIndex;
-                lstMedia.ScrollIntoView(lstMedia.SelectedItem);
-                PlaySelectedMedia();
-            }
-            UpdateStatus("⏮ Đang quay lại bài trước...");
-        }
         private void swSponsorBlock_Toggled(object sender, RoutedEventArgs e)
         {
             if (_engine == null) return;
@@ -1795,56 +1295,8 @@ namespace MediaLedInterfaceNew
 
             UpdateStatus(isOn ? "Đã bật SponsorBlock (Tự động lưu)." : "Đã tắt SponsorBlock.");
         }
-        private void btnNext_Click(object sender, RoutedEventArgs e)
-        {
-            PlayNextVideo(false);
-            UpdateStatus("⏭ Đang chuyển bài tiếp theo...");
-        }
 
-        private void PlayNextVideo(bool isAuto)
-        {
-            if (CurrentList == null || CurrentList.Count == 0) return;
 
-            int newIndex = -1;
-
-            int currentIndex = -1;
-            if (_playingItem != null)
-            {
-                currentIndex = CurrentList.IndexOf(_playingItem);
-            }
-
-            if (_currentMode == PlayerMode.Shuffle)
-            {
-                do
-                {
-                    newIndex = _rng.Next(CurrentList.Count);
-                }
-                while (CurrentList.Count > 1 && newIndex == currentIndex);
-            }
-            else
-            {
-                if (currentIndex < CurrentList.Count - 1)
-                {
-                    newIndex = currentIndex + 1;
-                }
-
-                else
-                {
-                    if (isAuto && _currentMode == PlayerMode.Off)
-                    {
-                        StopComplete();
-                        return;
-                    }
-                    newIndex = 0;
-                }
-            }
-            if (newIndex >= 0 && newIndex < CurrentList.Count)
-            {
-                lstMedia.SelectedIndex = newIndex;
-                lstMedia.ScrollIntoView(lstMedia.SelectedItem);
-                PlaySelectedMedia();
-            }
-        }
         private void PlayNextVideo()
         {
             if (CurrentList.Count == 0) return;
@@ -1956,119 +1408,6 @@ namespace MediaLedInterfaceNew
             }
             UpdateStatus($"🔀 Đã đổi chế độ: {modeName}");
         }
-        private async Task SearchYoutubeAsync(string keyword, int pageIndex)
-        {
-            string pageToken = "";
-            if (pageIndex > 0 && _youtubePageTokens.ContainsKey(pageIndex))
-            {
-                pageToken = $"&pageToken={_youtubePageTokens[pageIndex]}";
-            }
-            string url = $"https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&q={Uri.EscapeDataString(keyword)}&type=video&key={KeyManager.GetYoutubeKey()}{pageToken}";
-
-            UpdateStatus($"⏳ YouTube: Đang tải trang {pageIndex + 1}...", false);
-
-            try
-            {
-                string json = await _httpClient.GetStringAsync(url);
-                var root = JsonNode.Parse(json);
-
-                var nextToken = root?["nextPageToken"]?.ToString();
-                if (!string.IsNullOrEmpty(nextToken))
-                {
-                    if (!_youtubePageTokens.ContainsKey(pageIndex + 1))
-                        _youtubePageTokens[pageIndex + 1] = nextToken;
-                }
-
-                var items = root?["items"]?.AsArray();
-                if (items != null && items.Count > 0)
-                {
-                    foreach (var item in items)
-                    {
-                        var snippet = item?["snippet"];
-                        string vid = item?["id"]?["videoId"]?.ToString();
-                        if (!string.IsNullOrEmpty(vid))
-                        {
-                            string channelTitle = snippet["channelTitle"]?.ToString() ?? "YouTube";
-                            _listSearch.Add(new MediaItem
-                            {
-                                FileName = snippet["title"]?.ToString(),
-                                FullPath = $"https://www.youtube.com/watch?v={vid}",
-                                Type = "YOUTUBE",
-                                ChannelName = snippet["channelTitle"]?.ToString(),
-                                Duration = channelTitle,
-                                Poster = new BitmapImage(new Uri($"https://img.youtube.com/vi/{vid}/mqdefault.jpg"))
-                            });
-                        }
-                    }
-
-                    bool hasMore = !string.IsNullOrEmpty(nextToken);
-
-                    UpdatePaginationUI(true, pageIndex, hasMore);
-                    UpdateStatus($"✅ YouTube: Hiển thị trang {pageIndex + 1} ({items.Count} video).");
-                    UpdateListStats();
-                }
-                else
-                {
-                    UpdateStatus("⚠️ Không tìm thấy video nào.", false);
-                    UpdatePaginationUI(true, pageIndex, false);
-                }
-            }
-            catch (Exception ex)
-            {
-                UpdateStatus("❌ Lỗi YouTube API: " + ex.Message, false, true);
-            }
-        }
-        private async Task SearchDailymotionAsync(string keyword, int pageIndex)
-        {
-            int apiPage = pageIndex + 1;
-            string apiUrl = $"https://api.dailymotion.com/videos?fields=id,title,thumbnail_240_url,owner.username&search={Uri.EscapeDataString(keyword)}&limit=50&page={apiPage}";
-
-            UpdateStatus($"⏳ Dailymotion: Đang tải trang {apiPage}...");
-
-            try
-            {
-                string json = await _httpClient.GetStringAsync(apiUrl);
-                var root = JsonNode.Parse(json);
-
-                bool apiHasMore = root?["has_more"]?.GetValue<bool>() ?? false;
-                var list = root?["list"]?.AsArray();
-
-                if (list != null && list.Count > 0)
-                {
-                    foreach (var item in list)
-                    {
-                        string vid = item?["id"]?.ToString();
-                        if (!string.IsNullOrEmpty(vid))
-                        {
-                            string ownerName = item?["owner.username"]?.ToString() ?? "Dailymotion";
-                            _listSearch.Add(new MediaItem
-                            {
-                                FileName = item?["title"]?.ToString(),
-                                FullPath = $"https://www.dailymotion.com/video/{vid}",
-                                Type = "DAILYMOTION",
-                                ChannelName = item?["owner.username"]?.ToString(),
-                                Duration = ownerName,
-                                Poster = new BitmapImage(new Uri(item?["thumbnail_240_url"]?.ToString()))
-                            });
-                        }
-                    }
-                    bool hasMore = apiHasMore || list.Count == 50;
-
-                    UpdatePaginationUI(true, pageIndex, hasMore);
-                    UpdateStatus($"✅ Dailymotion: Hiển thị trang {apiPage} ({list.Count} video).");
-                    UpdateListStats();
-                }
-                else
-                {
-                    UpdateStatus("⚠️ Đã hết kết quả.", false);
-                    UpdatePaginationUI(true, pageIndex, false);
-                }
-            }
-            catch (Exception ex)
-            {
-                UpdateStatus("❌ Lỗi Dailymotion: " + ex.Message, false, true);
-            }
-        }
 
         private string DetectSourceType(string url)
         {
@@ -2088,112 +1427,18 @@ namespace MediaLedInterfaceNew
 
             return "ONLINE STREAM";
         }
-        private async Task SearchWindowsIndexAsync(string keyword, int pageIndex, int filterMode)
+        private void swAudioBoost_Toggled(object sender, RoutedEventArgs e)
         {
-            string normalizedKeyword = keyword.Normalize(System.Text.NormalizationForm.FormC).Replace("'", "''");
+            if (_engine == null) return;
 
-            UpdateStatus($"⏳ Đang tìm kiếm '{keyword}'...", false);
+            bool isBoostOn = swAudioBoost.IsOn;
+            double boostLevel = sldBoostLevel != null ? sldBoostLevel.Value : 5;
 
-            await Task.Run(() =>
+            if (lblBoostValue != null)
             {
-                var results = new List<MediaItem>();
-                int limit = 50;
-                string kindFilter = "";
-                switch (filterMode)
-                {
-                    case 1:
-                        kindFilter = "AND System.Kind = 'video'";
-                        break;
-                    case 2:
-                        kindFilter = "AND System.Kind = 'music'";
-                        break;
-                    case 3:
-                        kindFilter = "AND System.Kind = 'picture'";
-                        break;
-                    default:
-                        kindFilter = "AND (System.Kind = 'video' OR System.Kind = 'music' OR System.Kind = 'picture' OR System.Size > 100000)";
-                        break;
-                }
-                string sqlQuery = $@"SELECT TOP {limit} System.ItemName, System.ItemPathDisplay, System.ItemType 
-                             FROM SystemIndex 
-                             WHERE System.ItemName LIKE '%{normalizedKeyword}%' 
-                             {kindFilter}
-                             AND System.Size > 0 
-                             AND System.FileAttributes <> 2
-                             ORDER BY System.DateModified DESC";
-
-                try
-                {
-                    using (var connection = new System.Data.OleDb.OleDbConnection("Provider=Search.CollatorDSO;Extended Properties='Application=Windows';"))
-                    {
-                        connection.Open();
-                        using (var command = new System.Data.OleDb.OleDbCommand(sqlQuery, connection))
-                        using (var reader = command.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                string fileName = reader[0]?.ToString() ?? "Unknown";
-                                string fullPath = reader[1]?.ToString() ?? "";
-                                string itemType = reader[2]?.ToString() ?? "";
-                                if (!string.IsNullOrEmpty(fullPath) && System.IO.File.Exists(fullPath))
-                                {
-                                    string ext = System.IO.Path.GetExtension(fullPath).ToLower();
-                                    if (_allowedExtensions.Contains(ext))
-                                    {
-                                        results.Add(new MediaItem
-                                        {
-                                            FileName = fileName,
-                                            FullPath = fullPath,
-                                            Type = itemType.ToUpper(),
-                                            Duration = "Local",
-                                            Poster = null
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    this.DispatcherQueue.TryEnqueue(() =>
-                    {
-                        if (results.Count == 0)
-                        {
-                            UpdateStatus($"⚠️ Không tìm thấy kết quả. (Kiểm tra lại Indexing Options!)", false);
-                        }
-                        else
-                        {
-                            foreach (var item in results)
-                            {
-                                _listSearch.Add(item);
-                                _ = Task.Run(async () =>
-                                {
-                                    var stream = await FastThumbnail.GetImageStreamAsync(item.FullPath);
-                                    if (stream != null)
-                                    {
-                                        this.DispatcherQueue.TryEnqueue(async () =>
-                                        {
-                                            try
-                                            {
-                                                var bmp = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
-                                                await bmp.SetSourceAsync(stream.AsRandomAccessStream());
-                                                item.Poster = bmp;
-                                            }
-                                            catch { }
-                                        });
-                                    }
-                                });
-                            }
-
-                            UpdateStatus($"✅ Đã tìm thấy {results.Count} file media.");
-                            UpdateListStats();
-                        }
-                    });
-                }
-                catch (Exception ex)
-                {
-                    this.DispatcherQueue.TryEnqueue(() => UpdateStatus($"❌ Lỗi SQL: {ex.Message}", false, true));
-                }
-            });
+                lblBoostValue.Text = $"+{boostLevel} dB";
+            }
+            _engine.SetAudioBoost(isBoostOn, boostLevel);
         }
         private int _currentSourceMode = 0;
         private int _currentPcFilterMode = 0;
@@ -2435,110 +1680,8 @@ namespace MediaLedInterfaceNew
                 }
             };
         }
-        private async void OnBtnSaveSession_Click(object sender, RoutedEventArgs e)
-        {
-            if (lstMedia.ItemsSource == _listLocal)
-            {
-                await Task.Run(() => SaveListToJson(FILE_LOCAL, _listLocal));
-            }
-            else if (lstMedia.ItemsSource == _listStream)
-            {
-                await Task.Run(() => SaveListToJson(FILE_ONLINE, _listStream));
-            }
-            else if (lstMedia.ItemsSource == _listTv)
-            {
-                await Task.Run(() => SaveListToJson(FILE_TV, _listTv));
-            }
-            else
-            {
-                UpdateStatus("⚠️ Tab này không hỗ trợ lưu.", false, true);
-            }
-        }
 
-        private async void OnBtnRestoreSession_Click(object sender, RoutedEventArgs e)
-        {
-            List<MediaItem> loadedItems = null;
-            ObservableCollection<MediaItem> targetList = null;
-            List<MediaItem> targetBackup = null;
-            if (lstMedia.ItemsSource == _listLocal)
-            {
-                loadedItems = await Task.Run(() => LoadListFromJson(FILE_LOCAL));
-                targetList = _listLocal;
-                targetBackup = _backupLocal;
-            }
-            else if (lstMedia.ItemsSource == _listStream)
-            {
-                loadedItems = await Task.Run(() => LoadListFromJson(FILE_ONLINE));
-                targetList = _listStream;
-                targetBackup = _backupStream;
-            }
-            else if (lstMedia.ItemsSource == _listTv)
-            {
-                loadedItems = await Task.Run(() => LoadListFromJson(FILE_TV));
-                targetList = _listTv;
-                targetBackup = _backupTv;
-            }
-            if (loadedItems != null && targetList != null)
-            {
 
-                int countAdded = 0;
-
-                foreach (var item in loadedItems)
-                {
-                    bool isExist = targetList.Any(x => x.FullPath == item.FullPath);
-                    if (isExist) continue;
-
-                    targetList.Add(item);
-                    targetBackup.Add(item);
-                    countAdded++;
-                    if (targetList == _listLocal && System.IO.File.Exists(item.FullPath))
-                    {
-                        _ = Task.Run(async () =>
-                        {
-                            var stream = await FastThumbnail.GetImageStreamAsync(item.FullPath);
-                            if (stream != null)
-                            {
-                                this.DispatcherQueue.TryEnqueue(async () =>
-                                {
-                                    try
-                                    {
-                                        var bmp = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
-                                        await bmp.SetSourceAsync(stream.AsRandomAccessStream());
-                                        item.Poster = bmp;
-                                    }
-                                    catch { }
-                                });
-                            }
-                        });
-                    }
-                    else if ((targetList == _listStream || targetList == _listTv) && !string.IsNullOrEmpty(item.PosterUrl))
-                    {
-                        _ = Task.Run(async () =>
-                        {
-                            var bmp = await LoadImageSecurelyAsync(item.PosterUrl);
-                            if (bmp != null)
-                            {
-                                this.DispatcherQueue.TryEnqueue(() => item.Poster = bmp);
-                            }
-                        });
-                    }
-                }
-
-                if (countAdded > 0)
-                {
-                    UpdateStatus($"✅ Đã gộp thêm {countAdded} mục vào danh sách.", false);
-                    UpdateListStats();
-                }
-                else
-                {
-                    UpdateStatus("⚠ Không có mục mới nào (tất cả đã tồn tại).", false);
-                }
-            }
-            else
-            {
-                UpdateStatus("⚠️ Không tìm thấy file dữ liệu đã lưu cho tab này.", false, true);
-            }
-        }
         private void SyncDebounceTimer_Tick(object sender, object e)
         {
             _syncDebounceTimer.Stop();
@@ -2568,51 +1711,6 @@ namespace MediaLedInterfaceNew
             }
         }
 
-        private void StartWatching(string path)
-        {
-            if (_folderWatcher != null)
-            {
-                try
-                {
-                    _folderWatcher.EnableRaisingEvents = false;
-                    _folderWatcher.Dispose();
-                }
-                catch { }
-                finally { _folderWatcher = null; }
-            }
-
-            if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
-
-            try
-            {
-                _folderWatcher = new FileSystemWatcher(path);
-
-                _folderWatcher.IncludeSubdirectories = true;
-                _folderWatcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName |
-                                              NotifyFilters.LastWrite | NotifyFilters.Size;
-
-                _folderWatcher.Filter = "*.*";
-                _folderWatcher.Created += OnFileChanged;
-                _folderWatcher.Deleted += OnFileChanged;
-                _folderWatcher.Renamed += OnFileChanged;
-                _folderWatcher.EnableRaisingEvents = true;
-
-                System.Diagnostics.Debug.WriteLine($"[Watcher] Đã bắt đầu theo dõi: {path}");
-            }
-            catch (Exception ex)
-            {
-                UpdateStatus($"⚠️ Lỗi Watcher: {ex.Message}", false, true);
-            }
-        }
-
-        private void OnFileChanged(object sender, FileSystemEventArgs e)
-        {
-            this.DispatcherQueue.TryEnqueue(() =>
-            {
-                _debounceTimer.Stop();
-                _debounceTimer.Start();
-            });
-        }
         private void MoveToContainer(FrameworkElement control, Panel newParent)
         {
             if (control.Parent == newParent) return;
@@ -2645,78 +1743,7 @@ namespace MediaLedInterfaceNew
         }
         private Slider? _fullscreenSlider = null;
         private TextBlock? _fullscreenTimeText = null;
-        private Slider? _fsTimeSlider = null;
-        private Slider? _fsVolSlider = null;
-        private Border? _fsPreviewTip = null;
-        private TextBlock? _fsPreviewText = null;
-        private Border? _fsSponsorTip = null;
-        private TextBlock? _fsSponsorText = null;
-        private Microsoft.UI.Xaml.Shapes.Rectangle? _fsBufferRect = null;
-        private Canvas? _fsSponsorCanvas = null;
-        private TextBlock? _fsCurrentTime = null;
-        private TextBlock? _fsTotalTime = null;
-        private FontIcon? _fsPlayIcon = null;
-        private FontIcon? _fsVolIcon = null;
-        private FontIcon? _fsRepeatIcon = null;
 
-
-        private void ToggleInternalFullscreen()
-        {
-            if (_appWindow == null) return;
-            _isInternalFullscreen = !_isInternalFullscreen;
-            IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            IntPtr HWND_NOTOPMOST = new IntPtr(-2);
-            uint flags = 0x0002 | 0x0001 | 0x0010 | 0x0020;
-            if (_isInternalFullscreen)
-            {
-                AreaNav.Visibility = Visibility.Collapsed;
-                AreaSidebar.Visibility = Visibility.Collapsed;
-                AreaControls.Visibility = Visibility.Collapsed;
-                if (RowTitleBar != null) RowTitleBar.Height = new GridLength(0);
-                _appWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen);
-                SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags);
-                this.SystemBackdrop = null;
-                RootGrid.Background = new SolidColorBrush(Microsoft.UI.Colors.Black);
-                UpdateMpvLayout();
-                UpdateStatus("⛶ Fullscreen (Chế độ trình chiếu)", false);
-            }
-            else
-            {
-                _appWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
-                SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags);
-                CloseFsWindow();
-                if (btnFullScreen != null) btnFullScreen.IsChecked = false;
-                AreaNav.Visibility = Visibility.Visible;
-                AreaSidebar.Visibility = Visibility.Visible;
-                AreaControls.Visibility = Visibility.Visible;
-                AreaNav.Width = _isNavExpanded ? 125 : 50;
-                ColSidebar.Width = new GridLength(300);
-                if (RowTitleBar != null) RowTitleBar.Height = new GridLength(32);
-                if (Microsoft.UI.Composition.SystemBackdrops.MicaController.IsSupported())
-                {
-                    this.SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
-                    RootGrid.Background = null;
-                }
-                else
-                {
-                    this.SystemBackdrop = null;
-                    if (Application.Current.Resources.TryGetValue("SurfaceBrush", out object brush))
-                        RootGrid.Background = (SolidColorBrush)brush;
-                }
-                _fsTimeSlider = null;
-                _fsVolSlider = null;
-                _fsBufferRect = null;
-                _fsSponsorCanvas = null;
-                _fsCurrentTime = null;
-                _fsTotalTime = null;
-                _fsPlayIcon = null;
-                this.DispatcherQueue.TryEnqueue(async () =>
-                {
-                    await Task.Delay(50);
-                    UpdateMpvLayout();
-                });
-            }
-        }
 
         private void AnimateControlsOpacity(double targetOpacity)
         {
@@ -2746,20 +1773,19 @@ namespace MediaLedInterfaceNew
 
         private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
-            if (!_isInternalFullscreen) return;
             var properties = e.GetCurrentPoint(RootGrid).Properties;
-            if (properties.IsLeftButtonPressed || properties.IsRightButtonPressed)
+            if (properties.IsLeftButtonPressed)
             {
-                if (_fsWindow == null)
+                if (e.OriginalSource is FrameworkElement source &&
+                   (source is Button || source is Slider || source is TextBox || source is ToggleSwitch || source is Thumb))
                 {
-                    ShowFsWindow();
+                    return;
                 }
-                else
-                {
-                    CloseFsWindow();
-                }
-
-                e.Handled = true;
+                ToggleControlBar();
+            }
+            else if (properties.IsRightButtonPressed && _isInternalFullscreen)
+            {
+                ToggleControlBar();
             }
         }
         private void RootGrid_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -2807,73 +1833,16 @@ namespace MediaLedInterfaceNew
             }
             return false;
         }
-        private bool _isZenMode = false;
 
-        private async void ToggleZenMode()
-        {
-            _isZenMode = !_isZenMode;
 
-            if (_isZenMode)
-            {
-                // --- CHẾ ĐỘ ẨN (ZEN MODE) ---
 
-                // 1. Ẩn các thành phần giao diện
-                AreaNav.Visibility = Visibility.Collapsed;
-                AreaSidebar.Visibility = Visibility.Collapsed;
-
-                // Ẩn thanh kéo và thanh trạng thái
-                if (SidebarSplitter != null) SidebarSplitter.Visibility = Visibility.Collapsed;
-                if (StatusBarGrid != null) StatusBarGrid.Visibility = Visibility.Collapsed;
-
-                // 2. Thu gọn kích thước các Cột & Dòng về 0
-                ColSidebar.Width = new GridLength(0);
-
-                // --- MỚI THÊM: Thu gọn cột phân cách (4px) về 0 ---
-                if (ColSplitter != null) ColSplitter.Width = new GridLength(0);
-
-                // Thu gọn cột Nav (nếu có)
-                if (ColNav != null) ColNav.Width = new GridLength(0);
-
-                // Thu gọn dòng trạng thái
-                if (RootGrid.RowDefinitions.Count > 1) RootGrid.RowDefinitions[1].Height = new GridLength(0);
-
-                UpdateStatus("Đã BẬT chế độ toàn cảnh (F12)", false);
-            }
-            else
-            {
-                // --- CHẾ ĐỘ HIỆN (BÌNH THƯỜNG) ---
-
-                // 1. Hiện lại thành phần
-                AreaNav.Visibility = Visibility.Visible;
-                AreaSidebar.Visibility = Visibility.Visible;
-                if (SidebarSplitter != null) SidebarSplitter.Visibility = Visibility.Visible;
-                if (StatusBarGrid != null) StatusBarGrid.Visibility = Visibility.Visible;
-
-                // 2. Khôi phục kích thước
-                ColSidebar.Width = new GridLength(310); // Kích thước gốc Sidebar
-
-                // --- MỚI THÊM: Khôi phục cột phân cách về 4px ---
-                if (ColSplitter != null) ColSplitter.Width = new GridLength(4);
-
-                // Khôi phục cột Nav (Auto)
-                if (ColNav != null) ColNav.Width = GridLength.Auto;
-
-                // Khôi phục dòng trạng thái
-                if (RootGrid.RowDefinitions.Count > 1) RootGrid.RowDefinitions[1].Height = new GridLength(24);
-
-                UpdateStatus("Đã TẮT chế độ toàn cảnh", false);
-            }
-
-            // Cập nhật lại giao diện và MPV
-            RootGrid.UpdateLayout();
-            await Task.Delay(20);
-            UpdateMpvLayout();
-        }
         private void SetupGlobalHotkeys()
         {
+            RootGrid.KeyboardAccelerators.Clear();
             var accF12 = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = Windows.System.VirtualKey.F12 };
             accF12.Invoked += (s, e) =>
             {
+                if (!_isPlayerMode) return;
                 ToggleZenMode();
                 e.Handled = true;
             };
@@ -2885,6 +1854,8 @@ namespace MediaLedInterfaceNew
             };
             accAltEnter.Invoked += (s, e) =>
             {
+                if (!_isPlayerMode) return;
+
                 ToggleInternalFullscreen();
                 e.Handled = true;
             };
@@ -2934,22 +1905,11 @@ namespace MediaLedInterfaceNew
             var accH = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = Windows.System.VirtualKey.H };
             accH.Invoked += (s, e) =>
             {
-                if (_isInternalFullscreen)
-                {
-                    if (FullscreenPopup.IsOpen) CloseFsWindow();
-                    else ShowFsWindow();
-                }
-                else if (_isPlayerMode)
-                {
-                    bool isHidden = AreaControls.Visibility == Visibility.Collapsed;
-                    AreaControls.Visibility = isHidden ? Visibility.Visible : Visibility.Collapsed;
-                    if (isHidden && ProtectedCursor == null)
-                        ProtectedCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Arrow);
-                    UpdateStatus(isHidden ? "Đã hiện thanh điều khiển" : "Đã ẩn thanh điều khiển", false);
-                }
+                ToggleControlBar();
                 e.Handled = true;
             };
             RootGrid.KeyboardAccelerators.Add(accH);
+
             var accSub = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = Windows.System.VirtualKey.P };
             accSub.Invoked += (s, e) =>
             {
@@ -3172,19 +2132,6 @@ namespace MediaLedInterfaceNew
             }
         }
 
-        private void LoadWatchFolder()
-        {
-            string path = AppSettings.Get(SETTING_WATCH_FOLDER) ?? "";
-
-            if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
-            {
-                txtWatchFolder.Text = path;
-
-                ScanLibraryAsync(path);
-
-                StartWatching(path);
-            }
-        }
         private async void btnSelectWatchFolder_Click(object sender, RoutedEventArgs e)
         {
             var folderPicker = new FolderPicker();
@@ -3215,82 +2162,6 @@ namespace MediaLedInterfaceNew
                 UpdateStatus("⚠ Chưa chọn thư mục hoặc thư mục không tồn tại.", false, true);
             }
         }
-        private async void ScanLibraryAsync(string folderPath)
-        {
-            txtLibraryStatus.Text = "Trạng thái: Đang quét file...";
-            UpdateStatus("⏳ Đang cập nhật thư viện từ: " + folderPath);
-
-            await Task.Run(() =>
-            {
-                try
-                {
-                    var extensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                    {
-                        ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm",
-                        ".mp3", ".wav", ".flac", ".ogg", ".m4a", ".wma", ".aac"
-                    };
-                    var files = Directory.EnumerateFiles(folderPath, "*.*", SearchOption.AllDirectories)
-                                         .Where(f => extensions.Contains(Path.GetExtension(f)));
-
-                    var newItems = new List<MediaItem>();
-
-                    foreach (var file in files)
-                    {
-                        newItems.Add(new MediaItem
-                        {
-                            FileName = Path.GetFileName(file),
-                            FullPath = file,
-                            Type = "LIBRARY",
-                            Poster = null
-                        });
-                    }
-                    this.DispatcherQueue.TryEnqueue(() =>
-                    {
-                        _listLibrary.Clear();
-                        _backupLibrary.Clear();
-
-                        foreach (var item in newItems)
-                        {
-                            _listLibrary.Add(item);
-                            _backupLibrary.Add(item);
-                            _ = Task.Run(async () =>
-                            {
-
-                                var stream = await FastThumbnail.GetImageStreamAsync(item.FullPath);
-
-                                if (stream != null)
-                                {
-                                    this.DispatcherQueue.TryEnqueue(async () =>
-                                    {
-                                        try
-                                        {
-                                            var bmp = new BitmapImage();
-                                            await bmp.SetSourceAsync(stream.AsRandomAccessStream());
-                                            item.Poster = bmp;
-                                        }
-                                        catch { }
-                                    });
-                                }
-                            });
-                        }
-
-                        txtLibraryStatus.Text = $"Trạng thái: Đã xong ({newItems.Count} file).";
-                        UpdateStatus($"✅ Đã cập nhật Thư viện: {newItems.Count} file.");
-                        UpdateListStats();
-                    });
-                }
-                catch (Exception ex)
-                {
-                    this.DispatcherQueue.TryEnqueue(() =>
-                    {
-                        txtLibraryStatus.Text = "Lỗi: " + ex.Message;
-                        UpdateStatus("❌ Lỗi quét thư viện.", false, true);
-                    });
-                }
-            });
-        }
-        private string _tickerTextColor = "#FFFFFFFF";
-        private string _tickerBgColor = "#FFFF0000";
         private void btnTextColor_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag != null)
@@ -3361,7 +2232,8 @@ namespace MediaLedInterfaceNew
             double hoverTime = percent * _engine.Duration;
             if (hoverTime < 0) hoverTime = 0;
             if (hoverTime > _engine.Duration) hoverTime = _engine.Duration;
-            txtSeekPreviewTime.Text = TimeSpan.FromSeconds(hoverTime).ToString(@"mm\:ss");
+            TimeSpan tHover = TimeSpan.FromSeconds(hoverTime);
+            txtSeekPreviewTime.Text = (tHover.TotalHours >= 1) ? tHover.ToString(@"hh\:mm\:ss") : tHover.ToString(@"mm\:ss");
             popPreview.HorizontalOffset = mouseX - (grpPreviewBox.Width / 2);
             if (!popPreview.IsOpen) popPreview.IsOpen = true;
             var matchingSegments = new System.Collections.Generic.List<dynamic>();
@@ -3503,66 +2375,7 @@ namespace MediaLedInterfaceNew
             if (borderTickerBg != null)
                 borderTickerBg.Background = new SolidColorBrush(args.NewColor);
         }
-        private void UpdateTickerDesignPreview()
-        {
-            if (txtTickerPreview == null || borderTickerBg == null) return;
 
-            try
-            {
-                if (cboTickerFont.SelectedItem != null)
-                {
-                    string fontName = cboTickerFont.SelectedItem.ToString();
-                    txtTickerPreview.FontFamily = new Microsoft.UI.Xaml.Media.FontFamily(fontName);
-                }
-
-                if (nbFontSize != null)
-                {
-                    double size = nbFontSize.Value;
-                    if (size > 0) txtTickerPreview.FontSize = size;
-                }
-                if (btnBold != null)
-                {
-                    txtTickerPreview.FontWeight = (btnBold.IsChecked == true) ? FontWeights.Bold : FontWeights.Normal;
-                }
-                if (btnItalic != null)
-                {
-                    txtTickerPreview.FontStyle = (btnItalic.IsChecked == true) ? Windows.UI.Text.FontStyle.Italic : Windows.UI.Text.FontStyle.Normal;
-                }
-
-                if (cpTextColor != null)
-                {
-                    txtTickerPreview.Foreground = new SolidColorBrush(cpTextColor.Color);
-                }
-
-                if (cpBgColor != null && swTickerBg != null)
-                {
-                    if (swTickerBg.IsOn)
-                    {
-                        borderTickerBg.Background = new SolidColorBrush(cpBgColor.Color);
-                    }
-                    else
-                    {
-                        borderTickerBg.Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
-                    }
-                }
-            }
-            catch { }
-            if (sldTickerBgSize != null && borderTickerBg != null)
-            {
-                borderTickerBg.Padding = new Thickness(sldTickerBgSize.Value);
-            }
-            if (chkFullWidth != null && borderTickerBg != null)
-            {
-                if (chkFullWidth.IsChecked == true)
-                {
-                    borderTickerBg.HorizontalAlignment = HorizontalAlignment.Stretch;
-                }
-                else
-                {
-                    borderTickerBg.HorizontalAlignment = HorizontalAlignment.Center;
-                }
-            }
-        }
 
         private void OnTickerSettingChanged(object sender, RoutedEventArgs e)
         {
@@ -3641,163 +2454,7 @@ namespace MediaLedInterfaceNew
 
             e.Handled = true;
         }
-        private Grid CreateFullscreenControls()
-        {
-            var accentBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 140, 0));
-            var bgBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(180, 20, 20, 20));
-            var textGray = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray);
-            var textWhite = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.WhiteSmoke);
-            Grid wrapper = new Grid
-            {
-                Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch,
-                IsHitTestVisible = true
-            };
-            wrapper.PointerPressed += (s, e) => CloseFsWindow();
-            Grid container = new Grid
-            {
-                Background = bgBrush,
-                BorderBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 51, 51)),
-                BorderThickness = new Microsoft.UI.Xaml.Thickness(0, 1, 0, 0),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Bottom,
-                Height = 120,
-                RenderTransform = new TranslateTransform { Y = 120 }
-            };
-            container.PointerPressed += (s, e) => e.Handled = true;
-            container.Loaded += (s, e) =>
-            {
-                var transform = container.RenderTransform as TranslateTransform;
-                if (transform == null) return;
-                var sb = new Storyboard();
-                var anim = new DoubleAnimation { From = 120, To = 0, Duration = new Duration(TimeSpan.FromMilliseconds(350)), EasingFunction = new CircleEase { EasingMode = EasingMode.EaseOut } };
-                Storyboard.SetTarget(anim, transform);
-                Storyboard.SetTargetProperty(anim, "Y");
-                sb.Children.Add(anim);
-                sb.Begin();
-            };
-            container.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            container.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-            Grid rowTime = new Grid { Margin = new Microsoft.UI.Xaml.Thickness(20, 10, 20, 0) };
-            rowTime.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
-            rowTime.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            rowTime.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
-
-            _fsCurrentTime = new TextBlock { Text = txtCurrentTime.Text, Foreground = textGray, FontSize = 12, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
-            _fsTotalTime = new TextBlock { Text = txtTotalTime.Text, Foreground = textGray, FontSize = 12, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
-
-            Grid sliderContainer = new Grid { VerticalAlignment = VerticalAlignment.Center };
-            _fsBufferRect = new Microsoft.UI.Xaml.Shapes.Rectangle { Height = 4, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left, Width = 0, Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(200, 192, 192, 192)), IsHitTestVisible = false };
-            _fsSponsorCanvas = new Canvas { VerticalAlignment = VerticalAlignment.Center, Height = 4, Margin = new Microsoft.UI.Xaml.Thickness(0, 24, 0, 0), IsHitTestVisible = false };
-            _fsTimeSlider = new Slider { Minimum = 0, Maximum = 100, Value = timelineSlider.Value, VerticalAlignment = VerticalAlignment.Center, Foreground = accentBrush, IsThumbToolTipEnabled = false };
-            _fsTimeSlider.PointerMoved += OnFsSliderPointerMoved;
-            _fsTimeSlider.PointerExited += OnFsSliderPointerExited;
-            _fsTimeSlider.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnSliderDragStart), true);
-            _fsTimeSlider.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(OnSliderDragEnd), true);
-            _fsTimeSlider.ValueChanged += (s, e) => { if (!_isInternalUpdate) { timelineSlider.Value = e.NewValue; if (_engine != null && _engine.Duration > 0) _engine.Seek((e.NewValue / 100.0) * _engine.Duration); } };
-            _fsTimeSlider.SizeChanged += (s, e) => { DrawSponsorMarks(); UpdateFullscreenBufferWidth(); };
-            _fsTimeSlider.Resources["SliderTrackValueFillPointerOver"] = accentBrush;
-            _fsTimeSlider.Resources["SliderTrackValueFillPressed"] = accentBrush;
-            _fsTimeSlider.Resources["SliderThumbBackgroundPointerOver"] = accentBrush;
-            _fsTimeSlider.Resources["SliderThumbBackgroundPressed"] = accentBrush;
-            _fsTimeSlider.Resources["SliderTrackFillPointerOver"] = new SolidColorBrush(Windows.UI.Color.FromArgb(64, 255, 255, 255));
-            _fsTimeSlider.Resources["SliderTrackFillPressed"] = new SolidColorBrush(Windows.UI.Color.FromArgb(64, 255, 255, 255));
-
-            sliderContainer.Children.Add(_fsBufferRect);
-            sliderContainer.Children.Add(_fsTimeSlider);
-            sliderContainer.Children.Add(_fsSponsorCanvas);
-
-            Grid.SetColumn(_fsCurrentTime, 0);
-            Grid.SetColumn(sliderContainer, 1);
-            Grid.SetColumn(_fsTotalTime, 2);
-            rowTime.Children.Add(_fsCurrentTime);
-            rowTime.Children.Add(sliderContainer);
-            rowTime.Children.Add(_fsTotalTime);
-            Grid.SetRow(rowTime, 0); container.Children.Add(rowTime);
-            Grid rowControls = new Grid { Margin = new Microsoft.UI.Xaml.Thickness(20, 0, 20, 10) };
-            rowControls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(280) });
-            rowControls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            rowControls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(280) });
-            Button CreateBtn(string glyph, double size, string tooltip, RoutedEventHandler onClick, SolidColorBrush color = null)
-            {
-                Button b = new Button { Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Microsoft.UI.Xaml.Thickness(0), Width = 40, Height = 40, Padding = new Microsoft.UI.Xaml.Thickness(0), CornerRadius = new CornerRadius(4), IsTabStop = false };
-                b.Resources["ButtonBackgroundPointerOver"] = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
-                b.Resources["ButtonBackgroundPressed"] = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
-                ToolTipService.SetToolTip(b, tooltip);
-                b.Content = new FontIcon { Glyph = glyph, FontSize = size, Foreground = color ?? textWhite };
-                b.Click += onClick;
-                return b;
-            }
-            StackPanel pLeft = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
-            pLeft.Children.Add(CreateBtn("\uE92C", 18, "Thoát toàn màn hình", (s, e) => ToggleInternalFullscreen()));
-            pLeft.Children.Add(CreateBtn("\uE9E9", 16, "Cài đặt", (s, e) => btnQuickSettings_Click(s, e)));
-            Grid.SetColumn(pLeft, 0); rowControls.Children.Add(pLeft);
-            StackPanel pCenter = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 15, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-            pCenter.Children.Add(CreateBtn("\uE25E", 16, "Dừng hẳn", (s, e) => btnStop_Click(s, e)));
-            pCenter.Children.Add(CreateBtn("\uE622", 16, "Bài trước", (s, e) => btnPrev_Click(s, e)));
-            pCenter.Children.Add(CreateBtn("\uE627", 18, "Lùi 5s", (s, e) => btnRewind_Click(s, e)));
-            Button btnPlayBig = new Button { Width = 64, Height = 64, CornerRadius = new CornerRadius(32), Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Microsoft.UI.Xaml.Thickness(0), Padding = new Microsoft.UI.Xaml.Thickness(0) };
-            btnPlayBig.Resources["ButtonBackgroundPointerOver"] = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
-            btnPlayBig.Resources["ButtonBackgroundPressed"] = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
-            string playIconGlyph = (btnPlay.Visibility == Visibility.Visible) ? "\uF5B0" : "\uF8AE";
-            _fsPlayIcon = new FontIcon { Glyph = playIconGlyph, FontSize = 40, Foreground = accentBrush };
-            btnPlayBig.Content = _fsPlayIcon;
-            btnPlayBig.Click += (s, e) => { if (btnPlay.Visibility == Visibility.Visible) btnPlay_Click(s, e); else btnPause_Click(s, e); };
-            pCenter.Children.Add(btnPlayBig);
-            pCenter.Children.Add(CreateBtn("\uE628", 18, "Tiến 5s", (s, e) => btnForward_Click(s, e)));
-            pCenter.Children.Add(CreateBtn("\uE623", 16, "Bài sau", (s, e) => btnNext_Click(s, e)));
-            Button btnModeFs = CreateBtn(iconCycle.Glyph, 16, "Chế độ lặp", (s, e) => btnModeCycle_Click(s, e));
-            _fsRepeatIcon = (FontIcon)btnModeFs.Content;
-            _fsRepeatIcon.Glyph = iconCycle.Glyph;
-            _fsRepeatIcon.Foreground = iconCycle.Foreground;
-            pCenter.Children.Add(btnModeFs);
-            Grid.SetColumn(pCenter, 1); rowControls.Children.Add(pCenter);
-            StackPanel pRight = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
-            Button btnMuteFs = CreateBtn(iconVolume.Glyph, 20, "Tắt tiếng", (s, e) => btnMute_Click(s, e));
-            _fsVolIcon = (FontIcon)btnMuteFs.Content; pRight.Children.Add(btnMuteFs);
-            _fsVolSlider = new Slider { Width = 100, Minimum = 0, Maximum = 100, Value = sliderVolume.Value, VerticalAlignment = VerticalAlignment.Center, Foreground = accentBrush, IsThumbToolTipEnabled = true };
-            _fsVolSlider.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnSliderDragStart), true);
-            _fsVolSlider.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(OnSliderDragEnd), true);
-            _fsVolSlider.ValueChanged += (s, e) => { if (!_isInternalUpdate && Math.Abs(sliderVolume.Value - e.NewValue) > 1) sliderVolume.Value = e.NewValue; };
-            pRight.Children.Add(_fsVolSlider);
-            Grid.SetColumn(pRight, 2); rowControls.Children.Add(pRight);
-
-            Grid.SetRow(rowControls, 1);
-            container.Children.Add(rowControls);
-            _fsPreviewText = new TextBlock { Text = "00:00", Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontSize = 11, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-            _fsPreviewTip = new Border
-            {
-                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 240, 165, 0)),
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(6, 4, 6, 4),
-                Child = _fsPreviewText,
-                Visibility = Visibility.Collapsed,
-                VerticalAlignment = VerticalAlignment.Bottom,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(0, 0, 0, 130),
-                IsHitTestVisible = false
-            };
-            _fsSponsorText = new TextBlock { Text = "Sponsor", Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontSize = 12, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-            _fsSponsorTip = new Border
-            {
-                Background = new SolidColorBrush(Microsoft.UI.Colors.LimeGreen),
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(8, 4, 8, 4),
-                Child = _fsSponsorText,
-                Visibility = Visibility.Collapsed,
-                VerticalAlignment = VerticalAlignment.Bottom,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(0, 0, 0, 160),
-                IsHitTestVisible = false
-            };
-            wrapper.Children.Add(container);
-            wrapper.Children.Add(_fsPreviewTip);
-            wrapper.Children.Add(_fsSponsorTip);
-
-            return wrapper;
-        }
         private T FindChildElement<T>(DependencyObject parent, string childName) where T : FrameworkElement
         {
             int count = VisualTreeHelper.GetChildrenCount(parent);
@@ -3860,7 +2517,8 @@ namespace MediaLedInterfaceNew
             double hoverTime = percent * _engine.Duration;
             if (hoverTime < 0) hoverTime = 0;
             if (hoverTime > _engine.Duration) hoverTime = _engine.Duration;
-            _fsPreviewText.Text = TimeSpan.FromSeconds(hoverTime).ToString(@"mm\:ss");
+            TimeSpan tHover = TimeSpan.FromSeconds(hoverTime);
+            _fsPreviewText.Text = (tHover.TotalHours >= 1) ? tHover.ToString(@"hh\:mm\:ss") : tHover.ToString(@"mm\:ss");
             var transform = slider.TransformToVisual(PopupContainer.Children[0] as UIElement);
             var sliderAbsPos = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
 
@@ -4249,6 +2907,11 @@ namespace MediaLedInterfaceNew
                 PopupContainer.Width = this.Content.XamlRoot.Size.Width;
                 PopupContainer.Height = this.Content.XamlRoot.Size.Height;
             }
+            if (_isZenMode)
+            {
+                UpdateUIVisibility();
+                UpdateMpvLayout();
+            }
         }
 
         private void cboViewMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -4571,26 +3234,6 @@ namespace MediaLedInterfaceNew
             _currentSearchPage++;
             await TriggerSearchNavigation();
         }
-        private async Task TriggerSearchNavigation()
-        {
-            _listSearch.Clear();
-            switch (_currentSourceMode)
-            {
-                case 0:
-                    await SearchYoutubeAsync(_currentSearchQuery, _currentSearchPage);
-                    break;
-
-                case 1:
-                    await SearchDailymotionAsync(_currentSearchQuery, _currentSearchPage);
-                    break;
-
-                case 2:
-                    await SearchWindowsIndexAsync(_currentSearchQuery, _currentSearchPage, _currentPcFilterMode);
-                    break;
-            }
-
-            UpdateListStats();
-        }
 
         private int _currentSearchPage = 0;
         private string _currentSearchQuery = "";
@@ -4637,58 +3280,7 @@ namespace MediaLedInterfaceNew
                 UpdateStatus("Không thể mở Indexing Options: " + ex.Message, false, true);
             }
         }
-        private void DrawSponsorMarks()
-        {
-            ClearAllSponsorMarks();
 
-            if (_engine == null || _engine.Duration <= 0) return;
-
-            var segments = _engine.GetCurrentSponsors();
-            if (segments == null || segments.Count == 0) return;
-
-            double totalSeconds = _engine.Duration;
-
-            foreach (var seg in segments)
-            {
-                double startVal = seg.Segment[0];
-                double endVal = seg.Segment[1];
-
-                double startPercent = startVal / totalSeconds;
-                double endPercent = endVal / totalSeconds;
-                double widthPercent = endPercent - startPercent;
-                var color = GetColorByCategory(seg.Category);
-                if (cvsSponsor != null && timelineSlider != null && timelineSlider.ActualWidth > 0)
-                {
-                    double canvasW = timelineSlider.ActualWidth;
-
-                    var rect = new Microsoft.UI.Xaml.Shapes.Rectangle
-                    {
-                        Height = cvsSponsor.ActualHeight > 0 ? cvsSponsor.ActualHeight : 4,
-                        Width = widthPercent * canvasW,
-                        Fill = new SolidColorBrush(color),
-                        IsHitTestVisible = false
-                    };
-                    Canvas.SetLeft(rect, startPercent * canvasW);
-                    cvsSponsor.Children.Add(rect);
-                }
-                if (_fsSponsorCanvas != null && _fsTimeSlider != null)
-                {
-                    double fsWidth = _fsTimeSlider.ActualWidth;
-                    if (fsWidth <= 0) fsWidth = 800;
-
-                    var fsRect = new Microsoft.UI.Xaml.Shapes.Rectangle
-                    {
-                        Height = 4,
-                        Width = widthPercent * fsWidth,
-                        Fill = new SolidColorBrush(color),
-                        IsHitTestVisible = false
-                    };
-
-                    Canvas.SetLeft(fsRect, startPercent * fsWidth);
-                    _fsSponsorCanvas.Children.Add(fsRect);
-                }
-            }
-        }
         private Windows.UI.Color GetColorByCategory(string category)
         {
             switch (category.ToLower())
@@ -4776,49 +3368,8 @@ namespace MediaLedInterfaceNew
 
 
         private const int WS_EX_TOPMOST = 0x00000008;
-        private void ShowFsWindow()
-        {
-            if (PopupContainer.Children.Count == 0)
-            {
-                var content = CreateFullscreenControls();
-                PopupContainer.Children.Add(content);
-            }
 
-            if (this.Content is FrameworkElement root)
-            {
-                PopupContainer.Width = root.ActualWidth;
-                PopupContainer.Height = root.ActualHeight;
-            }
-            FullscreenPopup.IsOpen = true;
-        }
 
-        private async void CloseFsWindow()
-        {
-            if (FullscreenPopup.IsOpen && PopupContainer.Children.Count > 0)
-            {
-                if (PopupContainer.Children[0] is Grid wrapper && wrapper.Children.Count > 0)
-                {
-                    if (wrapper.Children[0] is FrameworkElement container &&
-                        container.RenderTransform is TranslateTransform transform)
-                    {
-                        var sb = new Storyboard();
-                        var anim = new DoubleAnimation
-                        {
-                            To = 120,
-                            Duration = new Duration(TimeSpan.FromMilliseconds(250)),
-                            EasingFunction = new CircleEase { EasingMode = EasingMode.EaseIn }
-                        };
-                        Storyboard.SetTarget(anim, transform);
-                        Storyboard.SetTargetProperty(anim, "Y");
-                        sb.Children.Add(anim);
-                        sb.Begin();
-                        await Task.Delay(250);
-                    }
-                }
-                FullscreenPopup.IsOpen = false;
-                PopupContainer.Children.Clear();
-            }
-        }
         private Window _fsWindow = null;
         private IntPtr _fsWindowHandle = IntPtr.Zero;
         private IntPtr CustomControlWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
@@ -4874,6 +3425,7 @@ namespace MediaLedInterfaceNew
             await Task.Delay(100);
             pnlPreview.SizeChanged -= PnlPreview_SizeChanged;
             bool newMode = btnModeSwitch.IsChecked == true;
+            _isPlayerMode = newMode;
             await _engine.SetMode(newMode);
             StopComplete();
             UpdateModeUI(newMode);
@@ -4922,106 +3474,9 @@ namespace MediaLedInterfaceNew
             CompositionTarget.Rendering += OnNavAnimating;
         }
 
-        private void btnToggleLed_Click(object sender, RoutedEventArgs e)
-        {
-            if (_engine == null) return;
-            if (_isPlayerMode) return;
 
-            if (_selectedMonitor == null)
-            {
-                UpdateStatus("⛔ Chưa chọn màn hình xuất! Vui lòng kiểm tra dây cáp.", false, true);
-                RefreshMonitors();
-                return;
-            }
-            if (!_engine.IsPlaying() && !_engine.IsShowingWallpaper)
-            {
-                _engine.ShowWallpaper();
-            }
 
-            _isLedOn = !_isLedOn;
 
-            if (_isLedOn)
-            {
-                _engine.SetLedScreen(true, _selectedMonitor.Rect);
-
-                if (btnToggleLed.Content is FontIcon icon)
-                {
-                    icon.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 140, 0));
-                    if (iconLed != null) iconLed.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 140, 0));
-                }
-                UpdateStatus($"🚀 Đã xuất hình ra: {_selectedMonitor.Name}");
-            }
-            else
-            {
-                _engine.SetLedScreen(false, new MediaEngine.RECT());
-
-                if (btnToggleLed.Content is FontIcon icon)
-                {
-                    icon.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray);
-                    if (iconLed != null) iconLed.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray);
-                }
-                UpdateStatus("Đã ngắt kết nối màn hình LED.");
-            }
-
-            UpdateMpvLayout();
-        }
-
-        private void UpdateMpvLayout()
-        {
-            if (_engine == null || this.Content == null || this.Content.XamlRoot == null) return;
-
-            bool shouldShowVideo = true;
-            if (grpEffects.Visibility == Visibility.Visible)
-            {
-                shouldShowVideo = false;
-            }
-
-            try
-            {
-                double scale = this.Content.XamlRoot.RasterizationScale;
-                int x, y, w, h;
-
-                if (_isInternalFullscreen)
-                {
-                    x = 0; y = 0;
-                    w = (int)(RootGrid.ActualWidth * scale);
-                    h = (int)(RootGrid.ActualHeight * scale);
-                    shouldShowVideo = true;
-                }
-                else
-                {
-                    FrameworkElement targetElement = (grpEffects.Visibility == Visibility.Visible)
-                        ? (FrameworkElement)DesignSurface
-                        : (FrameworkElement)pnlPreview;
-                    if (targetElement == null || targetElement.ActualWidth <= 0 || !targetElement.IsLoaded) return;
-
-                    var rootElement = this.Content as UIElement;
-                    try
-                    {
-                        var transform = targetElement.TransformToVisual(rootElement);
-                        var point = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
-
-                        x = (int)(point.X * scale);
-                        y = (int)(point.Y * scale);
-                        w = (int)(targetElement.ActualWidth * scale);
-                        h = (int)(targetElement.ActualHeight * scale);
-                    }
-                    catch
-                    {
-                        return;
-                    }
-                }
-
-                if (w > 0 && h > 0)
-                {
-                    _engine.UpdateLayout(x, y, w, h, shouldShowVideo);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("Layout Error: " + ex.Message);
-            }
-        }
 
         private double _savedNavWidth = 50;
         private double _savedSidebarWidth = 300;
@@ -5055,249 +3510,6 @@ namespace MediaLedInterfaceNew
             {
                 _resizeDebounceTimer.Stop();
                 _resizeDebounceTimer.Start();
-            }
-        }
-        private async void btnAdd_Click(object sender, RoutedEventArgs e)
-        {
-            if (lstMedia.ItemsSource == _listSearch)
-            {
-                if (lstMedia.SelectedItems.Count == 0)
-                {
-                    UpdateStatus("⚠ Vui lòng chọn ít nhất một mục từ kết quả tìm kiếm để thêm.", false, true);
-                    return;
-                }
-                var selectedItems = lstMedia.SelectedItems.Cast<MediaItem>().ToList();
-                int countStream = 0;
-                int countLocal = 0;
-
-                foreach (var item in selectedItems)
-                {
-                    var newItem = new MediaItem
-                    {
-                        FileName = item.FileName,
-                        FullPath = item.FullPath,
-                        Duration = item.Duration,
-                        ChannelName = item.ChannelName,
-                        Poster = item.Poster,
-                        Type = item.Type
-                    };
-
-                    if (item.FullPath.StartsWith("http") || item.Type.Contains("YOUTUBE") || item.Type.Contains("DAILY"))
-                    {
-                        newItem.Type = "ONLINE";
-                        _listStream.Add(newItem);
-                        _backupStream.Add(newItem);
-                        countStream++;
-                    }
-                    else
-                    {
-                        if (newItem.Poster == null)
-                        {
-                            try
-                            {
-                                var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(newItem.FullPath);
-                                newItem.Poster = await GetFileThumbnailAsync(file);
-                            }
-                            catch { }
-                        }
-
-                        _listLocal.Add(newItem);
-                        _backupLocal.Add(newItem);
-                        countLocal++;
-                    }
-                }
-                string msg = "✅ Đã thêm: ";
-                if (countStream > 0) msg += $"{countStream} vào Online ";
-                if (countLocal > 0) msg += $"{countLocal} vào Local";
-                UpdateStatus(msg);
-                lstMedia.SelectedItems.Clear();
-                UpdateListStats();
-                return;
-            }
-
-            if (lstMedia.ItemsSource == _listTv)
-            {
-                MenuFlyout menu = new MenuFlyout();
-                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                var subLink = new MenuFlyoutSubItem
-                {
-                    Text = "Thêm Link Stream",
-                    Icon = new FontIcon { Glyph = "\uE71B" }
-                };
-
-                var itemLinkManual = new MenuFlyoutItem
-                {
-                    Text = "Nhập thủ công (Trống)...",
-                    Icon = new FontIcon { Glyph = "\uE70F" }
-                };
-                itemLinkManual.Click += (s, args) =>
-                {
-                    ShowInlineInput("IPTV");
-                    if (txtInlineUrl != null)
-                    {
-                        txtInlineUrl.Text = "";
-                        txtInlineUrl.Focus(FocusState.Programmatic);
-                    }
-                };
-                subLink.Items.Add(itemLinkManual);
-                subLink.Items.Add(new MenuFlyoutSeparator());
-                string linkFilePath = System.IO.Path.Combine(baseDir, "IPTV_Data", "links.txt");
-                if (System.IO.File.Exists(linkFilePath))
-                {
-                    try
-                    {
-                        var linesOfLink = System.IO.File.ReadAllLines(linkFilePath);
-                        int linkCount = 0;
-                        foreach (var line in linesOfLink)
-                        {
-                            if (string.IsNullOrWhiteSpace(line) || line.Trim().StartsWith("#")) continue;
-
-                            string urlRaw = line.Trim();
-                            string displayName = urlRaw;
-
-                            if (urlRaw.Contains("|"))
-                            {
-                                var parts = urlRaw.Split('|');
-                                urlRaw = parts[0].Trim();
-                                if (parts.Length > 1 && !string.IsNullOrWhiteSpace(parts[1]))
-                                    displayName = parts[1].Trim();
-                            }
-
-                            if (urlRaw.StartsWith("http") || urlRaw.StartsWith("rtmp") || urlRaw.StartsWith("udp"))
-                            {
-                                var dynamicItem = new MenuFlyoutItem
-                                {
-                                    Text = displayName,
-                                    Icon = new FontIcon { Glyph = "\uE968" },
-                                };
-                                ToolTipService.SetToolTip(dynamicItem, urlRaw);
-
-                                string finalUrl = urlRaw;
-                                dynamicItem.Click += async (s, e) =>
-                                {
-                                    this.Activate();
-                                    ShowInlineInput("IPTV");
-
-                                    if (txtInlineUrl != null)
-                                    {
-                                        txtInlineUrl.Text = finalUrl;
-                                        btnInlineAdd_Click(btnInlineAdd, new RoutedEventArgs());
-                                        await Task.Delay(1500);
-                                        UpdateListStats();
-                                    }
-                                };
-
-                                subLink.Items.Add(dynamicItem);
-                                linkCount++;
-                            }
-                        }
-                        if (linkCount == 0) subLink.Items.Add(new MenuFlyoutItem { Text = "(File trống)", IsEnabled = false });
-                    }
-                    catch { subLink.Items.Add(new MenuFlyoutItem { Text = "(Lỗi đọc file)", IsEnabled = false }); }
-                }
-                else
-                {
-                    subLink.Items.Add(new MenuFlyoutItem { Text = "(Chưa có file links.txt)", IsEnabled = false });
-                }
-                menu.Items.Add(subLink);
-                var subM3u = new MenuFlyoutSubItem { Text = "Thêm Playlist (M3U)", Icon = new FontIcon { Glyph = "\uE8FD" } };
-                var itemM3uManual = new MenuFlyoutItem { Text = "Chọn file từ máy...", Icon = new FontIcon { Glyph = "\uE8E5" } };
-                itemM3uManual.Click += async (s, args) => await AddTvFromFileAsync();
-                subM3u.Items.Add(itemM3uManual);
-                subM3u.Items.Add(new MenuFlyoutSeparator());
-
-                string playlistFolder = System.IO.Path.Combine(baseDir, "IPTV_Data", "Playlists");
-                if (System.IO.Directory.Exists(playlistFolder))
-                {
-                    var filesOfM3u = System.IO.Directory.GetFiles(playlistFolder);
-                    int m3uCount = 0;
-                    foreach (var file in filesOfM3u)
-                    {
-                        string ext = System.IO.Path.GetExtension(file).ToLower();
-                        if (ext == ".m3u" || ext == ".m3u8")
-                        {
-                            string fileName = System.IO.Path.GetFileNameWithoutExtension(file);
-                            var dynamicItem = new MenuFlyoutItem { Text = fileName, Icon = new FontIcon { Glyph = "\uE8B7" } };
-                            string filePathCapture = file;
-
-                            dynamicItem.Click += (s, e) =>
-                            {
-                                this.Activate();
-                                this.DispatcherQueue.TryEnqueue(() => HandleExternalPlaylist(filePathCapture));
-                            };
-                            subM3u.Items.Add(dynamicItem);
-                            m3uCount++;
-                        }
-                    }
-                    if (m3uCount == 0) subM3u.Items.Add(new MenuFlyoutItem { Text = "(Folder trống)", IsEnabled = false });
-                }
-                else { subM3u.Items.Add(new MenuFlyoutItem { Text = "(Chưa có folder Playlists)", IsEnabled = false }); }
-                menu.Items.Add(subM3u);
-
-                if (this.Content != null && this.Content.XamlRoot != null) menu.XamlRoot = this.Content.XamlRoot;
-                menu.ShowAt(sender as FrameworkElement);
-                return;
-            }
-            if (lstMedia.ItemsSource == _listStream)
-            {
-                ShowInlineInput("ONLINE");
-                return;
-            }
-
-            string filter =
-                "Video Files|*.mp4;*.mkv;*.avi;*.mov;*.wmv;*.flv;*.webm;*.m4v;*.3gp;*.ts;*.m2ts;*.mts;*.vob;*.iso;*.mpg;*.mpeg;*.m3u8|" +
-                "Audio Files|*.mp3;*.wav;*.flac;*.m4a;*.aac;*.ogg;*.wma;*.opus;*.ape;*.alac|" +
-                "Pictures|*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.webp|" +
-                "All Files (*.*)|*.*";
-            IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            string[] files = Win32Helper.ShowOpenFileDialog(hWnd, "Chọn tệp Media", filter);
-
-            if (files.Length > 0)
-            {
-                if (lstMedia.ItemsSource != _listLocal)
-                {
-                    rbMedia.IsChecked = true;
-                    OnNavTabClick(rbMedia, null);
-                }
-
-                int countAdded = 0;
-                foreach (string filePath in files)
-                {
-                    var item = new MediaItem
-                    {
-                        FileName = System.IO.Path.GetFileName(filePath),
-                        FullPath = filePath,
-                        Type = System.IO.Path.GetExtension(filePath).Replace(".", "").ToUpper(),
-                        Poster = null
-                    };
-
-                    _listLocal.Add(item);
-                    _backupLocal.Add(item);
-                    countAdded++;
-                    _ = Task.Run(async () =>
-                    {
-                        var stream = await FastThumbnail.GetImageStreamAsync(item.FullPath);
-                        if (stream != null)
-                        {
-                            this.DispatcherQueue.TryEnqueue(async () =>
-                            {
-                                try
-                                {
-                                    var bmp = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
-                                    await bmp.SetSourceAsync(stream.AsRandomAccessStream());
-                                    item.Poster = bmp;
-                                }
-                                catch { }
-                            });
-                        }
-                    });
-                }
-
-                if (countAdded > 0)
-                {
-                    UpdateStatus($"✅ Đã thêm {countAdded} file vào danh sách.");
-                    UpdateListStats();
-                }
             }
         }
 
@@ -5415,17 +3627,7 @@ namespace MediaLedInterfaceNew
             }
         }
 
-        private readonly HashSet<string> _allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v",
-            ".3gp", ".3g2", ".ts", ".m2ts", ".mts", ".vob", ".iso", ".mpeg",
-            ".mpg", ".mpe", ".ps", ".f4v", ".swf", ".rm", ".rmvb", ".asf",
-            ".ogv", ".ogm", ".divx", ".xvid", ".mxf", ".dnxhd", ".prores",
-            ".yuv", ".rgb", ".ivf", ".nut", ".m3u8", ".mpd",
-            ".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".wma", ".opus",
-            ".ape", ".alac", ".aiff", ".dsf", ".dff",
-            ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff", ".tif", ".svg"
-        };
+
         private void btnCancelReset_Click(object sender, RoutedEventArgs e)
         {
             if (btnFactoryReset.Flyout != null)
@@ -5516,10 +3718,6 @@ namespace MediaLedInterfaceNew
             }
             UpdateListStats();
             UpdateStatus("♻️ Đã khôi phục cài đặt gốc và xóa toàn bộ dữ liệu lưu trữ!");
-        }
-        private void btnDelete_Click(object sender, RoutedEventArgs e)
-        {
-            DeleteSelectedItems();
         }
 
         private void lstMedia_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -5700,76 +3898,12 @@ namespace MediaLedInterfaceNew
                 btnInlineAdd_Click(sender, new RoutedEventArgs());
             }
         }
-        private void DeleteSelectedItems()
-        {
-            var selectedItems = lstMedia.SelectedItems.Cast<MediaItem>().ToList();
-            var activeList = CurrentList;
-            foreach (var item in selectedItems)
-            {
-                activeList.Remove(item);
-            }
-            foreach (var item in selectedItems)
-            {
-                activeList.Remove(item);
-                if (activeList == _listLocal) _backupLocal.Remove(item);
-                else if (activeList == _listStream) _backupStream.Remove(item);
-                else if (activeList == _listTv) _backupTv.Remove(item);
-            }
-            UpdateListStats();
-        }
 
         private void lstMedia_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
         {
             PlaySelectedMedia();
         }
 
-        private void btnPlay_Click(object sender, RoutedEventArgs e)
-        {
-            if (_engine == null) return;
-
-            var targetItem = lstMedia.SelectedItem as MediaItem;
-            if (targetItem == null)
-            {
-                UpdateStatus("⚠️ Vui lòng chọn một file hoặc link để phát!", false, true);
-                return;
-            }
-
-            if (_playingItem == targetItem)
-            {
-                _engine.Resume();
-                targetItem.IsPaused = false;
-                btnPlay.Visibility = Visibility.Collapsed;
-                btnPause.Visibility = Visibility.Visible;
-                UpdatePlayingTabIndicator();
-
-                UpdateStatus($"▶ Tiếp tục: {targetItem.FileName}");
-            }
-            else
-            {
-                PlaySelectedMedia();
-            }
-        }
-        private void btnPause_Click(object sender, RoutedEventArgs e)
-        {
-            if (_engine != null) _engine.Pause();
-            if (lstMedia.SelectedItem is MediaItem item)
-            {
-                item.IsPaused = true;
-            }
-            else if (_playingItem != null)
-            {
-                _playingItem.IsPaused = true;
-            }
-
-            btnPause.Visibility = Visibility.Collapsed;
-            btnPlay.Visibility = Visibility.Visible;
-
-            StopVisualizer();
-
-            UpdatePlayingTabIndicator();
-
-            UpdateStatus("⏸ Đã tạm dừng.", true);
-        }
 
         private void InitializeAppWindow()
         {
@@ -5811,40 +3945,6 @@ namespace MediaLedInterfaceNew
             SetTitleBar(null);
         }
 
-        private void PlaySelectedMedia()
-        {
-            ClearAllSponsorMarks();
-            if (_engine == null) return;
-            if (_playingItem != null)
-            {
-                _playingItem.IsPlaying = false;
-                _playingItem.IsPaused = false;
-            }
-
-            if (lstMedia.SelectedItem is MediaItem selectedItem)
-            {
-                _playingItem = selectedItem;
-                _playingItem.IsPlaying = true;
-                _playingItem.IsPaused = false;
-
-                _engine.SetHttpHeaders(selectedItem.UserAgent, selectedItem.Referrer);
-                _engine.PlayTransition(selectedItem.FullPath);
-                _engine.Resume();
-                UpdatePlayingTabIndicator();
-                UpdateMpvLayout();
-
-                btnPlay.Visibility = Visibility.Collapsed;
-                btnPause.Visibility = Visibility.Visible;
-                UpdateStatus($"▶ Đang phát: {selectedItem.FileName}", true);
-                _isAutoChanging = false;
-
-                bool isTvMode = (lstMedia.ItemsSource == _listTv);
-                if (!isTvMode)
-                {
-                    StartVisualizer();
-                }
-            }
-        }
         public void BringToFront()
         {
             if (_appWindow != null)
@@ -5860,45 +3960,6 @@ namespace MediaLedInterfaceNew
             this.Activate();
         }
 
-        public async void HandleExternalPlaylist(string filePath)
-        {
-            if (string.IsNullOrEmpty(filePath)) return;
-            int retries = 0;
-            while (!_isInitialized)
-            {
-                await Task.Delay(200);
-                retries++;
-                if (retries > 20) return;
-            }
-            BringToFront();
-            if (rbTV != null)
-            {
-                rbTV.IsChecked = true;
-                OnNavTabClick(rbTV, null);
-            }
-
-            UpdateStatus($"📂 Đang đọc danh sách kênh từ: {System.IO.Path.GetFileName(filePath)}...", false);
-
-            try
-            {
-                string content = await System.IO.File.ReadAllTextAsync(filePath);
-                ParseM3UContent(content);
-
-                if (_listTv.Count > 0)
-                {
-
-                    UpdateStatus($"✅ Đã nhập M3U ({_listTv.Count} kênh). Vui lòng chọn kênh để xem.", false);
-                }
-                else
-                {
-                    UpdateStatus($"⚠ File M3U rỗng hoặc không đọc được.", false, true);
-                }
-            }
-            catch (Exception ex)
-            {
-                UpdateStatus($"❌ Lỗi đọc file M3U: {ex.Message}", false, true);
-            }
-        }
         public async void HandleExternalFiles(IReadOnlyList<string> filePaths)
         {
             if (filePaths == null || filePaths.Count == 0) return;
@@ -6126,156 +4187,7 @@ namespace MediaLedInterfaceNew
             }
         }
 
-        private async System.Threading.Tasks.Task<Microsoft.UI.Xaml.Media.Imaging.BitmapImage?> GetFileThumbnailAsync(Windows.Storage.StorageFile file)
-        {
-            try
-            {
-                var thumbnail = await file.GetThumbnailAsync(Windows.Storage.FileProperties.ThumbnailMode.SingleItem, 256);
 
-                if (thumbnail != null)
-                {
-                    var bitmap = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
-                    await bitmap.SetSourceAsync(thumbnail);
-                    return bitmap;
-                }
-            }
-            catch
-            {
-            }
-            return null;
-        }
-
-        private async Task<List<MediaItem>> ParseOnlineVideoAsync(string url, bool isPlaylist, int maxLimit = 30)
-        {
-            var finalResults = new List<MediaItem>();
-
-            string exePath = System.IO.Path.Combine(AppContext.BaseDirectory, "yt-dlp.exe");
-            if (!System.IO.File.Exists(exePath))
-            {
-                string debugPath = System.IO.Path.Combine(AppContext.BaseDirectory, "..\\..\\..\\yt-dlp.exe");
-                if (System.IO.File.Exists(debugPath)) exePath = debugPath;
-                else return finalResults;
-            }
-            var rawData = new List<(string Title, string Url, string Thumb, string Uploader, string Duration, string ID, string Extractor)>();
-
-            await Task.Run(() =>
-            {
-                try
-                {
-                    string limitArg = isPlaylist ? $"--playlist-end {maxLimit}" : "";
-                    string playlistArg = isPlaylist ? "--yes-playlist" : "--no-playlist";
-
-                    string scanMode = "--flat-playlist";
-                    if (url.Contains("facebook.com") || url.Contains("fb.watch"))
-                    {
-                        scanMode = "";
-                        url = url.Replace("www.facebook.com", "m.facebook.com");
-                    }
-                    string args = $"--no-config --encoding utf-8 --user-agent \"{MT_USER_AGENT}\" {playlistArg} {limitArg} {scanMode} --skip-download -j --no-warnings --ignore-errors \"{url}\"";
-
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = exePath,
-                        Arguments = args,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        StandardOutputEncoding = Encoding.UTF8
-                    };
-
-                    using (var process = new Process { StartInfo = psi })
-                    {
-                        process.Start();
-                        _ = Task.Run(() => { try { process.StandardError.ReadToEnd(); } catch { } });
-
-                        while (!process.StandardOutput.EndOfStream)
-                        {
-                            string jsonLine = process.StandardOutput.ReadLine();
-                            if (string.IsNullOrWhiteSpace(jsonLine)) continue;
-
-                            try
-                            {
-
-                                var node = System.Text.Json.Nodes.JsonNode.Parse(jsonLine);
-                                if (node == null) continue;
-
-
-                                string id = node["id"]?.ToString() ?? "";
-                                string title = node["title"]?.ToString() ?? $"Video {id}";
-                                string webUrl = node["webpage_url"]?.ToString() ?? node["url"]?.ToString() ?? "";
-                                string uploader = node["uploader"]?.ToString() ?? node["channel"]?.ToString() ?? "Online";
-                                string extractor = node["extractor_key"]?.ToString() ?? "Generic";
-
-                                string durationStr = node["duration"]?.ToString() ?? "0";
-
-                                string thumb = node["thumbnail"]?.ToString() ?? "";
-
-                                if (string.IsNullOrEmpty(thumb))
-                                {
-                                    var thumbsArr = node["thumbnails"]?.AsArray();
-                                    if (thumbsArr != null && thumbsArr.Count > 0)
-                                    {
-                                        thumb = thumbsArr[thumbsArr.Count - 1]?["url"]?.ToString() ?? "";
-                                    }
-                                }
-                                if (title == "[Deleted video]" || title == "[Private video]") continue;
-
-                                rawData.Add((title, webUrl, thumb, uploader, durationStr, id, extractor));
-                            }
-                            catch { /* Bỏ qua dòng lỗi JSON */ }
-                        }
-                        process.WaitForExit();
-                    }
-                }
-                catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
-            });
-            foreach (var data in rawData)
-            {
-                string durDisplay = data.Uploader;
-                if (string.IsNullOrEmpty(durDisplay)) durDisplay = "Unknown Channel";
-
-                string smartType = data.Extractor.ToUpper();
-                if (smartType.Contains("YOUTUBE")) smartType = "YOUTUBE";
-                else if (smartType.Contains("FACEBOOK")) smartType = "FACEBOOK";
-                else if (smartType.Contains("TIKTOK")) smartType = "TIKTOK";
-                else if (smartType.Contains("DAILYMOTION")) smartType = "DAILYMOTION";
-
-                var item = new MediaItem
-                {
-                    FileName = data.Title,
-                    FullPath = data.Url,
-                    Type = smartType,
-                    ChannelName = data.Uploader,
-                    Duration = durDisplay,
-                    PosterUrl = data.Thumb,
-                    Poster = null
-                };
-                _ = Task.Run(async () =>
-                {
-                    string bestThumbUrl = data.Thumb;
-                    if (smartType == "YOUTUBE" && (string.IsNullOrEmpty(bestThumbUrl) || bestThumbUrl.Contains(".webp")))
-                    {
-                        if (!string.IsNullOrEmpty(data.ID)) bestThumbUrl = $"https://i.ytimg.com/vi/{data.ID}/hqdefault.jpg";
-                    }
-
-                    var bitmap = await LoadImageSecurelyAsync(bestThumbUrl);
-                    if (bitmap == null && smartType == "YOUTUBE" && !string.IsNullOrEmpty(data.ID))
-                    {
-                        bitmap = await LoadImageSecurelyAsync($"https://i.ytimg.com/vi/{data.ID}/mqdefault.jpg");
-                    }
-
-                    if (bitmap != null)
-                    {
-                        this.DispatcherQueue.TryEnqueue(() => item.Poster = bitmap);
-                    }
-                });
-
-                finalResults.Add(item);
-            }
-
-            return finalResults;
-        }
         private async Task<List<MediaItem>> ParseDailymotionPlaylistAsync(string playlistUrl, int limit = 30)
         {
             var results = new List<MediaItem>();
@@ -6354,142 +4266,6 @@ namespace MediaLedInterfaceNew
             return results;
         }
 
-        private async Task<Microsoft.UI.Xaml.Media.ImageSource?> LoadImageSecurelyAsync(string url)
-        {
-            if (string.IsNullOrEmpty(url)) return null;
-
-            try
-            {
-                using (var client = new HttpClient())
-                {
-                    client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-
-                    using (var response = await client.GetAsync(url))
-                    {
-                        if (!response.IsSuccessStatusCode) return null;
-
-                        byte[] data = await response.Content.ReadAsByteArrayAsync();
-
-                        if (data != null && data.Length > 0)
-                        {
-                            var tcs = new TaskCompletionSource<Microsoft.UI.Xaml.Media.ImageSource?>();
-
-                            this.DispatcherQueue.TryEnqueue(async () =>
-                            {
-                                try
-                                {
-                                    var bitmap = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
-
-                                    using (var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream())
-                                    {
-                                        await stream.WriteAsync(data.AsBuffer());
-                                        stream.Seek(0);
-                                        await bitmap.SetSourceAsync(stream);
-                                    }
-                                    tcs.SetResult(bitmap);
-                                }
-                                catch
-                                {
-                                    tcs.SetResult(null);
-                                }
-                            });
-
-                            return await tcs.Task;
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Lỗi tải ảnh: {ex.Message}");
-            }
-            return null;
-        }
-        private void FetchMetadataInBackground(MediaItem item)
-        {
-            Task.Run(async () =>
-            {
-                await _metadataSemaphore.WaitAsync();
-
-                try
-                {
-                    if (item == null) return;
-
-                    string exePath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "yt-dlp.exe");
-                    if (!System.IO.File.Exists(exePath))
-                    {
-                        string debugPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..\\..\\..\\yt-dlp.exe");
-                        if (System.IO.File.Exists(debugPath)) exePath = debugPath;
-                        else return;
-                    }
-                    var startInfo = new ProcessStartInfo
-                    {
-                        FileName = exePath,
-                        Arguments = $"\"{item.FullPath}\" --dump-json --no-playlist --skip-download --no-warnings --socket-timeout 5",
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        StandardOutputEncoding = Encoding.UTF8
-                    };
-
-                    using (var process = new Process { StartInfo = startInfo })
-                    {
-                        process.Start();
-                        string jsonOutput = await process.StandardOutput.ReadToEndAsync();
-                        await process.WaitForExitAsync();
-
-                        if (!string.IsNullOrEmpty(jsonOutput))
-                        {
-                            try
-                            {
-                                var node = JsonNode.Parse(jsonOutput);
-                                if (node != null)
-                                {
-                                    string title = node["title"]?.ToString();
-                                    string thumbnail = node["thumbnail"]?.ToString();
-                                    string uploader = node["uploader"]?.ToString() ?? node["channel"]?.ToString();
-                                    this.DispatcherQueue.TryEnqueue(() =>
-                                    {
-                                        if (!string.IsNullOrEmpty(title) && item.FileName == "Unknown Channel")
-                                            item.FileName = title;
-
-                                        if (!string.IsNullOrEmpty(uploader))
-                                        {
-                                            item.ChannelName = uploader;
-                                        }
-                                        if (!string.IsNullOrEmpty(thumbnail))
-                                        {
-                                            item.PosterUrl = thumbnail;
-                                            if (item.Poster == null)
-                                            {
-                                                _ = Task.Run(async () =>
-                                                {
-                                                    var bmp = await LoadImageSecurelyAsync(thumbnail);
-                                                    if (bmp != null)
-                                                    {
-                                                        this.DispatcherQueue.TryEnqueue(() => item.Poster = bmp);
-                                                    }
-                                                });
-                                            }
-                                        }
-                                    });
-                                }
-                            }
-                            catch { }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine("Metadata fetch error: " + ex.Message);
-                }
-                finally
-                {
-                    _metadataSemaphore.Release();
-                }
-            });
-        }
         private async Task AddTvFromUrlAsync()
         {
             var inputTextBox = new TextBox { Height = 35, PlaceholderText = "Ví dụ: https://xem.hoiquan.click/" };
@@ -6563,253 +4339,6 @@ namespace MediaLedInterfaceNew
             {
                 string content = await Windows.Storage.FileIO.ReadTextAsync(file);
                 ParseM3UContent(content);
-            }
-        }
-        private void ParseM3UContent(string content)
-        {
-            if (lstMedia.ItemsSource != _listTv)
-            {
-                rbTV.IsChecked = true;
-                OnNavTabClick(rbTV, null);
-            }
-            var lines = content.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-
-            string currentName = "Unknown Channel";
-            string currentGroup = "IPTV";
-            string currentLogo = "";
-            string currentUa = "";
-            string currentRef = "";
-
-            foreach (var line in lines)
-            {
-                string l = line.Trim();
-                if (string.IsNullOrEmpty(l)) continue;
-
-                if (l.StartsWith("#EXTINF"))
-                {
-                    currentLogo = "";
-                    currentName = "Channel";
-                    currentGroup = "Chung";
-                    int lastComma = l.LastIndexOf(',');
-                    if (lastComma != -1 && lastComma < l.Length - 1)
-                    {
-                        currentName = l.Substring(lastComma + 1).Trim();
-                    }
-                    var mGroup = System.Text.RegularExpressions.Regex.Match(l, "group-title=\"([^\"]+)\"");
-                    if (mGroup.Success) currentGroup = mGroup.Groups[1].Value.Trim();
-                    var mTvgLogo = System.Text.RegularExpressions.Regex.Match(l, "tvg-logo=\"([^\"]+)\"");
-                    if (mTvgLogo.Success)
-                    {
-                        currentLogo = mTvgLogo.Groups[1].Value.Trim();
-                    }
-                    else
-                    {
-                        var mLogo = System.Text.RegularExpressions.Regex.Match(l, "\\blogo=\"([^\"]+)\"");
-                        if (mLogo.Success)
-                        {
-                            currentLogo = mLogo.Groups[1].Value.Trim();
-                        }
-                    }
-                }
-                else if (l.StartsWith("#EXTVLCOPT") || l.StartsWith("#EXTHTTP"))
-                {
-                    if (l.Contains("http-user-agent="))
-                        currentUa = l.Substring(l.IndexOf("http-user-agent=") + 16).Trim();
-                    else if (l.Contains("http-referrer="))
-                        currentRef = l.Substring(l.IndexOf("http-referrer=") + 14).Trim();
-                }
-                else if (!l.StartsWith("#"))
-                {
-                    if (l.Length < 5) continue;
-                    string capturedLogo = currentLogo;
-
-                    var item = new MediaItem
-                    {
-                        FileName = currentName,
-                        FullPath = l,
-                        Type = "TV CHANNEL",
-                        ChannelName = currentGroup,
-                        Duration = "LIVE",
-                        UserAgent = currentUa,
-                        Referrer = currentRef,
-                        Poster = null,
-                        PosterUrl = capturedLogo
-                    };
-
-                    if (!string.IsNullOrEmpty(capturedLogo))
-                    {
-                        _ = Task.Run(async () =>
-                        {
-                            await _logoSemaphore.WaitAsync();
-                            try
-                            {
-                                var img = await LoadImageSecurelyAsync(capturedLogo);
-                                if (img != null)
-                                {
-                                    this.DispatcherQueue.TryEnqueue(() => item.Poster = img);
-                                }
-                            }
-                            catch { }
-                            finally
-                            {
-                                _logoSemaphore.Release();
-                            }
-                        });
-                    }
-                    else
-                    {
-                        FetchMetadataInBackground(item);
-                    }
-
-                    _listTv.Add(item);
-                    _backupTv.Add(item);
-                }
-            }
-            UpdateListStats();
-        }
-        private void InitializeNetworkMonitor()
-        {
-            Task.Run(() =>
-            {
-                FindActiveInterface();
-                GetWifiSsidAsync();
-
-                this.DispatcherQueue.TryEnqueue(() =>
-                {
-                    _netTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-                    _netTimer.Tick += (s, e) => UpdateNetworkStats();
-                    _netTimer.Start();
-                });
-            });
-
-            NetworkChange.NetworkAddressChanged += (s, e) =>
-            {
-                Task.Run(() =>
-                {
-                    FindActiveInterface();
-                    if (_activeNic != null && _activeNic.NetworkInterfaceType == NetworkInterfaceType.Wireless80211)
-                    {
-                        GetWifiSsidAsync();
-                    }
-                });
-            };
-        }
-
-        private void FindActiveInterface()
-        {
-            if (!NetworkInterface.GetIsNetworkAvailable())
-            {
-                _activeNic = null;
-                return;
-            }
-            NetworkInterface? foundNic = null;
-            foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
-            {
-                if (nic.OperationalStatus == OperationalStatus.Up &&
-                   (nic.NetworkInterfaceType == NetworkInterfaceType.Ethernet || nic.NetworkInterfaceType == NetworkInterfaceType.Wireless80211))
-                {
-                    var props = nic.GetIPProperties();
-                    if (props.GatewayAddresses.Count > 0)
-                    {
-                        foundNic = nic;
-                        break;
-                    }
-                }
-            }
-            if (foundNic != null)
-            {
-                _activeNic = foundNic;
-                _lastBytesRecv = foundNic.GetIPStatistics().BytesReceived;
-                _lastBytesSent = foundNic.GetIPStatistics().BytesSent;
-            }
-            else
-            {
-                _activeNic = null;
-            }
-        }
-
-        private async void GetWifiSsidAsync()
-        {
-            await Task.Run(() =>
-            {
-                try
-                {
-                    var proc = new Process
-                    {
-                        StartInfo = new ProcessStartInfo
-                        {
-                            FileName = "netsh",
-                            Arguments = "wlan show interfaces",
-                            UseShellExecute = false,
-                            RedirectStandardOutput = true,
-                            CreateNoWindow = true,
-                            StandardOutputEncoding = Encoding.UTF8
-                        }
-
-                    };
-
-                    proc.Start();
-                    string output = proc.StandardOutput.ReadToEnd();
-                    proc.WaitForExit();
-
-                    var match = Regex.Match(output, @"^\s*SSID\s*:\s*(.+)$", RegexOptions.Multiline);
-                    if (match.Success)
-                    {
-                        _currentSsid = match.Groups[1].Value.Trim();
-                    }
-                    else
-                    {
-                        _currentSsid = "Wi-Fi";
-                    }
-                }
-                catch
-                {
-                    _currentSsid = "Wi-Fi";
-                }
-            });
-        }
-
-        private void UpdateNetworkStats()
-        {
-            if (_activeNic == null)
-            {
-
-                FindActiveInterface();
-                if (_activeNic == null)
-                {
-                    UpdateNetLabel("\uf140 Không có kết nối Internet", 0, 0);
-                    return;
-                }
-            }
-
-            try
-            {
-                long recv = _activeNic.GetIPStatistics().BytesReceived;
-                long sent = _activeNic.GetIPStatistics().BytesSent;
-
-                long down = recv - _lastBytesRecv;
-                long up = sent - _lastBytesSent;
-                if (down < 0) down = 0;
-                if (up < 0) up = 0;
-
-                _sessionDownloaded += down;
-                _lastBytesRecv = recv;
-                _lastBytesSent = sent;
-
-                string name = "\uE839 Ethernet";
-
-                if (_activeNic.NetworkInterfaceType == NetworkInterfaceType.Wireless80211)
-                {
-                    string ssidDisplay = !string.IsNullOrEmpty(_currentSsid) ? _currentSsid : "Wi-Fi";
-                    name = $"\uE701 {ssidDisplay}";
-                }
-
-                UpdateNetLabel(name, down, up);
-            }
-            catch
-            {
-                _activeNic = null;
-                UpdateNetLabel("\uf140 Không có kết nối Internet", 0, 0);
             }
         }
 
@@ -6909,104 +4438,7 @@ namespace MediaLedInterfaceNew
             }
             return string.Format("{0:n1} {1}", number, suffixes[counter]);
         }
-        private void ParseJsonTvContent(string jsonContent)
-        {
-            lstMedia.ItemsSource = _listTv;
 
-            try
-            {
-                var root = JsonNode.Parse(jsonContent);
-                if (root == null) return;
-                var groups = root["groups"]?.AsArray();
-                if (groups != null && groups.Count > 0)
-                {
-                    foreach (var group in groups)
-                    {
-                        string groupName = group?["name"]?.ToString() ?? "Nổi Bật";
-                        var channels = group?["channels"]?.AsArray();
-
-                        if (channels != null)
-                        {
-                            foreach (var channel in channels)
-                            {
-                                string name = channel?["name"]?.ToString() ?? "Unknown";
-                                string logo = channel?["image"]?["url"]?.ToString() ?? "";
-                                string streamUrl = GetUrlFromNestedJson(channel);
-                                if (!string.IsNullOrEmpty(streamUrl))
-                                {
-                                    var mediaItem = new MediaItem
-                                    {
-                                        FileName = name,
-                                        FullPath = streamUrl,
-                                        Type = "TV ONLINE",
-                                        ChannelName = groupName,
-                                        Duration = "LIVE",
-                                        PosterUrl = logo
-                                    };
-
-                                    if (!string.IsNullOrEmpty(logo))
-                                    {
-                                        try
-                                        {
-                                            mediaItem.Poster = new BitmapImage(new Uri(logo));
-                                        }
-                                        catch { }
-                                    }
-                                    _listTv.Add(mediaItem);
-                                }
-                            }
-                        }
-                    }
-                    return;
-                }
-                JsonArray? items = null;
-                if (root is JsonArray arr) items = arr;
-                else if (root is JsonObject obj)
-                {
-                    foreach (var kvp in obj)
-                    {
-                        if (kvp.Value is JsonArray a && a.Count > 0)
-                        {
-                            items = a;
-                            break;
-                        }
-                    }
-                }
-
-                if (items != null)
-                {
-                    foreach (var item in items)
-                    {
-                        string name = item?["name"]?.ToString() ?? item?["title"]?.ToString() ?? "Unknown";
-                        string url = item?["url"]?.ToString() ?? item?["link"]?.ToString() ?? item?["file"]?.ToString() ?? "";
-                        string logo = item?["logo"]?.ToString() ?? item?["image"]?.ToString() ?? "";
-
-                        if (!string.IsNullOrEmpty(url))
-                        {
-                            var mediaItem = new MediaItem
-                            {
-                                FileName = name,
-                                FullPath = url,
-                                Type = "TV JSON",
-                                ChannelName = "IPTV",
-                                Duration = "LIVE"
-                            };
-
-                            if (!string.IsNullOrEmpty(logo))
-                            {
-                                try { mediaItem.Poster = new BitmapImage(new Uri(logo)); } catch { }
-                            }
-                            _listTv.Add(mediaItem);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("JSON TV Error: " + ex.Message);
-            }
-            UpdateListStats();
-        }
 
         private void sldVideoColor_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
@@ -7406,40 +4838,7 @@ namespace MediaLedInterfaceNew
             }
         }
 
-        private async void swLogo_Toggled(object sender, RoutedEventArgs e)
-        {
-            bool isOn = swLogo.IsOn;
 
-            if (pnlLogoControls != null)
-            {
-                pnlLogoControls.Visibility = isOn ? Visibility.Visible : Visibility.Collapsed;
-            }
-
-            if (OverlayCanvas != null)
-            {
-                foreach (var child in OverlayCanvas.Children)
-                {
-                    if (child is Grid g && g.Tag != null && g != DraggableText)
-                    {
-                        g.Visibility = isOn ? Visibility.Visible : Visibility.Collapsed;
-                    }
-                }
-            }
-
-            if (_engine != null)
-            {
-                if (isOn)
-                {
-                    await ApplyLogoLogic();
-                }
-                else
-                {
-                    await _engine.UpdateLogoLayers(null);
-
-                    UpdateStatus("Đã tắt hoàn toàn Logo trên Video.");
-                }
-            }
-        }
 
         private async void swTicker_Toggled(object sender, RoutedEventArgs e)
         {
@@ -7551,132 +4950,16 @@ namespace MediaLedInterfaceNew
             }
         }
 
-        private void Element_PointerPressed(object sender, PointerRoutedEventArgs e)
-        {
-            if (_isEffectResizing) return;
 
-            var element = sender as FrameworkElement;
-            if (element == null) return;
 
-            if (element is Control c) c.Focus(FocusState.Programmatic);
-            else if (element is Panel p)
-            {
 
-            }
 
-            _selectedElement = element;
-            _isDragging = true;
-            _startPoint = e.GetCurrentPoint(OverlayCanvas).Position;
-            _orgLeft = Canvas.GetLeft(_selectedElement);
-            _orgTop = Canvas.GetTop(_selectedElement);
 
-            element.CapturePointer(e.Pointer);
-            e.Handled = true;
-        }
 
-        private void Element_PointerMoved(object sender, PointerRoutedEventArgs e)
-        {
-            if (_isDragging && _selectedElement != null)
-            {
-                var currentPos = e.GetCurrentPoint(OverlayCanvas).Position;
-                double offsetX = currentPos.X - _startPoint.X;
-                double offsetY = currentPos.Y - _startPoint.Y;
 
-                Canvas.SetLeft(_selectedElement, _orgLeft + offsetX);
-                Canvas.SetTop(_selectedElement, _orgTop + offsetY);
-            }
-        }
 
-        private async void Element_PointerReleased(object sender, PointerRoutedEventArgs e)
-        {
-            if (_isDragging && _selectedElement != null)
-            {
-                _isDragging = false;
-                _selectedElement.ReleasePointerCapture(e.Pointer);
 
-                if (pnlPreview != null && pnlPreview.Visibility == Visibility.Visible)
-                {
-                    if (_selectedElement == DraggableText && swTicker.IsOn)
-                    {
-                        await ApplyTickerLogic();
-                    }
-                    else if (_selectedElement != DraggableText && swLogo.IsOn)
-                    {
-                        await ApplyLogoLogic();
-                    }
-                }
 
-                _selectedElement = null;
-            }
-        }
-        private void Resize_PointerPressed(object sender, PointerRoutedEventArgs e)
-        {
-            var handle = sender as Microsoft.UI.Xaml.Shapes.Shape;
-            if (handle != null && handle.Parent is Grid parentGrid)
-            {
-                _selectedElement = parentGrid;
-                _isEffectResizing = true;
-                _startPoint = e.GetCurrentPoint(OverlayCanvas).Position;
-
-                _orgWidth = _selectedElement.ActualWidth;
-                _orgHeight = _selectedElement.ActualHeight;
-                if (_orgHeight > 0) _orgAspectRatio = _orgWidth / _orgHeight;
-                else _orgAspectRatio = 1;
-                _currentResizeMode = handle.Tag?.ToString() ?? "Corner";
-
-                handle.CapturePointer(e.Pointer);
-                e.Handled = true;
-            }
-        }
-
-        private void Resize_PointerMoved(object sender, PointerRoutedEventArgs e)
-        {
-            if (_isEffectResizing && _selectedElement != null)
-            {
-                var currentPos = e.GetCurrentPoint(OverlayCanvas).Position;
-                double diffX = currentPos.X - _startPoint.X;
-                double diffY = currentPos.Y - _startPoint.Y;
-
-                double newW = _orgWidth;
-                double newH = _orgHeight;
-
-                switch (_currentResizeMode)
-                {
-                    case "Corner":
-
-                        newW = _orgWidth + diffX;
-                        if (newW < 20) newW = 20;
-                        newH = newW / _orgAspectRatio;
-                        break;
-
-                    case "Right":
-                        newW = _orgWidth + diffX;
-                        if (newW < 20) newW = 20;
-                        newH = _orgHeight;
-                        break;
-
-                    case "Bottom":
-                        newH = _orgHeight + diffY;
-                        if (newH < 20) newH = 20;
-                        newW = _orgWidth;
-                        break;
-                }
-
-                _selectedElement.Width = newW;
-                _selectedElement.Height = newH;
-            }
-        }
-
-        private void Resize_PointerReleased(object sender, PointerRoutedEventArgs e)
-        {
-            if (_isEffectResizing)
-            {
-                _isEffectResizing = false;
-                (sender as UIElement)?.ReleasePointerCapture(e.Pointer);
-                _selectedElement = null;
-                _currentResizeMode = "";
-            }
-        }
     }
 
     public static class AppSettings

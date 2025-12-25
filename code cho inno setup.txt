@@ -1,13 +1,13 @@
-; --- Script tạo bộ cài MediaLed Interface (Bản chạy ngay) ---
+; --- Script tạo bộ cài MediaLed Interface (Bản Tùy Chọn) ---
 
-; 1. CÁC ĐỊNH NGHĨA TÊN (Đã điền sẵn)
+; 1. CÁC ĐỊNH NGHĨA TÊN
 #define MyAppName "MediaLed Interface"
-#define MyAppVersion "1.6.231225"
+#define MyAppVersion "1.6.241225"
 #define MyAppPublisher "Tạ Quang Hiếu"
 #define MyAppExeName "MediaLedInterface.exe"
 
 [Setup]
-; 2. MÃ ĐỊNH DANH (Đã tạo mã ngẫu nhiên mới, dùng luôn không cần sửa)
+; 2. MÃ ĐỊNH DANH (Giữ nguyên)
 AppId={{C8F21D90-5B3A-4F2E-9A1C-7D4E8B2F3A10}}
 
 ; Thông tin hiển thị
@@ -23,55 +23,63 @@ PrivilegesRequired=admin
 Compression=lzma2/ultra64
 SolidCompression=yes
 
-; File đầu ra sẽ nằm ở C:\MediaLedSetup\Output
-OutputBaseFilename=MediaLed_Setup_Install
+; File đầu ra
+OutputBaseFilename=MediaLed_Setup_Install_Optional
 OutputDir=C:\MediaLedSetup\Output
 
-; Icon gỡ cài đặt lấy từ chính file exe
+; Icon gỡ cài đặt
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
+; --- PHẦN MỚI: TẠO CHECKBOX TÙY CHỌN ---
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
-[Files]
-; --- PHẦN QUAN TRỌNG NHẤT: ĐƯỜNG DẪN FILE ---
+; Checkbox cho các phần mềm phụ trợ (Mặc định là checked - có thể đổi thành unchecked nếu muốn tắt mặc định)
+Name: "installFont"; Description: "Cài đặt Font Segoe Fluent Icons (Khuyên dùng)"; GroupDescription: "Thành phần bổ trợ (Optional):"
+Name: "installVC";   Description: "Cài đặt Microsoft Visual C++ Redistributable"; GroupDescription: "Thành phần bổ trợ (Optional):"
+Name: "installKLite"; Description: "Cài đặt K-Lite Codec Pack Mega"; GroupDescription: "Thành phần bổ trợ (Optional):"
 
-; 1. Copy file phần mềm (Đã chỉnh theo đường dẫn bạn gửi)
+[Files]
+; 1. Copy file phần mềm chính (Giữ nguyên)
 Source: "C:\MediaLedSetup\AppFiles\net8.0-windows10.0.19041.0\win-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; 2. Cài Font (Tự động)
-Source: "C:\MediaLedSetup\Redist\Segoe Fluent Icons.ttf"; DestDir: "{autofonts}"; FontInstall: "Segoe Fluent Icons"; Flags: onlyifdoesntexist uninsneveruninstall
+; 2. Cài Font (Chỉ cài nếu người dùng tích chọn Task 'installFont')
+Source: "C:\MediaLedSetup\Redist\Segoe Fluent Icons.ttf"; DestDir: "{autofonts}"; FontInstall: "Segoe Fluent Icons"; Tasks: installFont; Flags: onlyifdoesntexist uninsneveruninstall
 
-; 3. File cài đặt phụ (Copy vào thư mục tạm để chạy rồi xóa)
-; LƯU Ý: Đảm bảo tên file trong thư mục Redist máy bạn đúng y hệt 2 tên này:
-Source: "C:\MediaLedSetup\Redist\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
-Source: "C:\MediaLedSetup\Redist\K-Lite_Codec_Pack_Mega.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
+; 3. File cài đặt phụ (Chỉ copy vào Temp nếu người dùng tích chọn Task tương ứng - Tiết kiệm thời gian)
+Source: "C:\MediaLedSetup\Redist\vc_redist.x64.exe"; DestDir: "{tmp}"; Tasks: installVC; Flags: deleteafterinstall
+Source: "C:\MediaLedSetup\Redist\K-Lite_Codec_Pack_Mega.exe"; DestDir: "{tmp}"; Tasks: installKLite; Flags: deleteafterinstall
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-; --- CHẠY CÀI ĐẶT TỰ ĐỘNG (SILENT MODE) ---
+; --- CHẠY CÀI ĐẶT DỰA TRÊN TÙY CHỌN ---
 
-; 1. Visual C++ (Chạy im lặng)
+; 1. Visual C++ 
+; Thêm 'Tasks: installVC': Chỉ chạy nếu user chọn checkbox
+; Giữ 'Check: NeedInstallVC': Chỉ chạy nếu máy chưa có (An toàn kép)
 Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; \
     StatusMsg: "Đang cài đặt Microsoft Visual C++..."; \
-    Check: NeedInstallVC; Flags: waituntilterminated
+    Tasks: installVC; Check: NeedInstallVC; Flags: waituntilterminated
 
-; 2. K-Lite Codec (Chạy im lặng)
+; 2. K-Lite Codec
+; Thêm 'Tasks: installKLite': Chỉ chạy nếu user chọn checkbox
+; Giữ 'Check: NeedInstallKLite': Chỉ chạy nếu máy chưa có
 Filename: "{tmp}\K-Lite_Codec_Pack_Mega.exe"; Parameters: "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-"; \
     StatusMsg: "Đang cài đặt K-Lite Codec Pack..."; \
-    Check: NeedInstallKLite; Flags: waituntilterminated
+    Tasks: installKLite; Check: NeedInstallKLite; Flags: waituntilterminated
 
 ; 3. Chạy phần mềm sau khi xong
 Filename: "{app}\{#MyAppExeName}"; Description: "Khởi động phần mềm"; Flags: nowait postinstall skipifsilent
 
 [Code]
-// --- HÀM KIỂM TRA ĐỂ KHÔNG CÀI LẠI NẾU ĐÃ CÓ ---
+// --- GIỮ NGUYÊN HÀM KIỂM TRA ĐỂ TRÁNH CÀI ĐÈ NẾU ĐÃ CÓ ---
+// Logic hiện tại: User phải Chọn Checkbox VÀ Máy chưa có thì mới cài.
 
 function NeedInstallVC: Boolean;
 var

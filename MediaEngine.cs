@@ -499,6 +499,27 @@ namespace MediaLedInterfaceNew
                 return deltaY < 0 ? " (Trên)" : " (Dưới)";
             }
         }
+
+        public void SetAudioBoost(bool enable, double gainDb)
+        {
+            string label = "audio_boost";
+            _playerA?.DoCommand("af", "remove", $"@{label}");
+            _playerB?.DoCommand("af", "remove", $"@{label}");
+
+            if (enable)
+            {
+                string filterString = $"volume=gain={gainDb}";
+
+                _playerA?.DoCommand("af", "add", $"@{label}:{filterString}");
+                _playerB?.DoCommand("af", "add", $"@{label}:{filterString}");
+
+                ShowOsdText($"🔊 Đã kích hoạt Boost: +{gainDb}dB");
+            }
+            else
+            {
+                ShowOsdText("🔊 Đã tắt Boost");
+            }
+        }
         public MediaEngine(IntPtr mainAppHwnd, Microsoft.UI.Dispatching.DispatcherQueue dispatcher)
         {
             _mainAppHwnd = mainAppHwnd;

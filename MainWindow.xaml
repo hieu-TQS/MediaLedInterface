@@ -432,39 +432,117 @@
                             </Expander>
                         </StackPanel>
                     </Expander>
-
-                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False">
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="#252525" CornerRadius="8" IsExpanded="False" Margin="0,0,0,0">
                         <Expander.Header>
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <FontIcon Glyph="&#xE7F4;" FontSize="18" Foreground="{StaticResource AccentBrush}"/>
-                                <TextBlock Text="Màn hình xuất (LED Output)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Cài đặt Map LED Output" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
                             </StackPanel>
                         </Expander.Header>
-                        <StackPanel Padding="0,10,0,0">
-                            <TextBlock Text="Chọn màn hình đích:" Foreground="#D0D0D0" FontSize="12" Margin="0,0,0,5"/>
+                        <StackPanel Padding="0,0,0,0" Spacing="5">
+
+                            <Grid Margin="0,0,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center">
+                                    <ToggleSwitch x:Name="swLedMode" 
+                          OnContent="Thủ công" 
+                          OffContent="Tự động" 
+                          IsOn="False" 
+                          Toggled="swLedMode_Toggled"
+                          HorizontalAlignment="Left"
+                          MinWidth="120"
+                          Margin="0,0,0,-4"/>
+                                </StackPanel>
+                            </Grid>
+
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <ComboBox x:Name="cboMonitorOutput" Grid.Column="0" HorizontalAlignment="Stretch" SelectionChanged="cboMonitorOutput_SelectionChanged" PlaceholderText="Đang tìm màn hình...">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <StackPanel Margin="0,4">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <FontIcon Glyph="&#xE7F4;" FontSize="12" Margin="0,1,8,0" Foreground="{StaticResource AccentBrush}"/>
-                                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="White" FontSize="13"/>
-                                                </StackPanel>
-                                                <TextBlock Text="{Binding ResolutionDisplay}" FontSize="11" Foreground="Gray" Margin="20,2,0,0"/>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
-                                <Button x:Name="btnRefreshMonitors" Click="btnRefreshMonitors_Click" Grid.Column="1" Margin="10,0,0,0" Background="#333333" BorderThickness="0" ToolTipService.ToolTip="Quét lại thiết bị hiển thị">
-                                    <FontIcon Glyph="&#xE72C;" FontSize="16" Foreground="White"/>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock x:Name="lblMonitorSelect" Text="Chọn màn hình xuất hình:" Foreground="#D0D0D0" FontSize="12" Margin="0,0,0,5"/>
+                                    <ComboBox x:Name="cboMonitorOutput" 
+                      HorizontalAlignment="Stretch" 
+                      SelectionChanged="cboMonitorOutput_SelectionChanged" 
+                      DisplayMemberPath="Name" 
+                      PlaceholderText="--- Đang tìm màn hình ---"/>
+                                </StackPanel>
+                                <Button x:Name="btnRefreshMonitors" Grid.Column="1" Click="btnRefreshMonitors_Click" Margin="10,22,0,0" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Quét lại (Đã lọc màn hình App)">
+                                    <FontIcon Glyph="&#xE72C;" FontSize="16" Foreground="{StaticResource AccentBrush}"/>
                                 </Button>
                             </Grid>
-                            <TextBlock x:Name="txtMonitorStatus" Text="Đang kiểm tra kết nối..." Foreground="Gray" FontSize="11" FontStyle="Italic" Margin="0,8,0,0" TextWrapping="Wrap"/>
+
+                            <TextBlock x:Name="txtMonitorStatus" Text="Hệ thống tự động ẩn màn hình đang chạy App." Foreground="Gray" FontSize="10" FontStyle="Italic"/>
+
+                            <StackPanel x:Name="pnlManualLed" Visibility="Collapsed" Spacing="10" Background="#303030" Padding="10" CornerRadius="4" Margin="0,5,0,0">
+                                <Rectangle Height="1" Fill="#555555" Margin="0,0,0,5"/>
+                                <TextBlock Text="1. Nhập thông số chính xác:" FontSize="11" Foreground="{StaticResource AccentBrush}" FontWeight="Bold"/>
+
+                                <Grid ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <NumberBox x:Name="nbLedX" Header="Toạ độ X" Value="0" SpinButtonPlacementMode="Inline" SmallChange="1"/>
+                                    <NumberBox x:Name="nbLedY" Grid.Column="1" Header="Toạ độ Y" Value="0" SpinButtonPlacementMode="Inline" SmallChange="1"/>
+                                </Grid>
+
+                                <Grid ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <NumberBox x:Name="nbLedWidth" Header="Rộng (Width)" Value="1920" SpinButtonPlacementMode="Inline" SmallChange="1"/>
+                                    <NumberBox x:Name="nbLedHeight" Grid.Column="1" Header="Cao (Height)" Value="1080" SpinButtonPlacementMode="Inline" SmallChange="1"/>
+                                </Grid>
+
+                                <Rectangle Height="1" Fill="#555555" Margin="0,5"/>
+
+                                <TextBlock Text="2. Tinh chỉnh vị trí (D-Pad):" FontSize="11" Foreground="{StaticResource AccentBrush}" FontWeight="Bold"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Grid Width="120" Height="80">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <Button Grid.Row="0" Grid.Column="1" Click="btnLedMove_Click" Tag="Up" Margin="2" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#444444" ToolTipService.ToolTip="Lên">
+                                            <FontIcon Glyph="&#xE70E;" FontSize="10"/>
+                                        </Button>
+                                        <Button Grid.Row="1" Grid.Column="1" Click="btnLedMove_Click" Tag="Down" Margin="2" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#444444" ToolTipService.ToolTip="Xuống">
+                                            <FontIcon Glyph="&#xE70D;" FontSize="10"/>
+                                        </Button>
+                                        <Button Grid.Row="1" Grid.Column="0" Click="btnLedMove_Click" Tag="Left" Margin="2" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#444444" ToolTipService.ToolTip="Trái">
+                                            <FontIcon Glyph="&#xE76B;" FontSize="10"/>
+                                        </Button>
+                                        <Button Grid.Row="1" Grid.Column="2" Click="btnLedMove_Click" Tag="Right" Margin="2" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#444444" ToolTipService.ToolTip="Phải">
+                                            <FontIcon Glyph="&#xE76C;" FontSize="10"/>
+                                        </Button>
+                                    </Grid>
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="15,0,0,0">
+                                        <TextBlock Text="Bước nhảy (Step - px):" FontSize="10" Foreground="Gray"/>
+                                        <Slider x:Name="sldLedStep" Minimum="1" Maximum="100" Value="1" Margin="0,-5,0,0"/>
+                                        <Button Content="Áp dụng ngay" Click="btnApplyManualLed_Click" HorizontalAlignment="Stretch" Background="{StaticResource AccentBrush}" Foreground="White" BorderThickness="0" Margin="0,5,0,0" FontSize="12" FontWeight="Bold"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
                         </StackPanel>
                     </Expander>
 
@@ -639,6 +717,37 @@
                         </Expander.Header>
                         <StackPanel Padding="0,10,0,0">
                             <StackPanel Margin="0,0,0,15">
+                                <StackPanel Margin="0,0,0,15" Background="#333333" Padding="10" CornerRadius="4">
+                                    <StackPanel Orientation="Vertical" Spacing="5" VerticalAlignment="Center">
+
+                                        <ToggleSwitch x:Name="swAudioBoost"
+                  OnContent="Bật" 
+                  OffContent="Tắt"
+                  Toggled="swAudioBoost_Toggled"
+                  HorizontalAlignment="Left"/>
+
+                                        <StackPanel>
+                                            <TextBlock Text="Kích âm lượng (Audio Boost)" 
+                   FontWeight="Bold" 
+                   Foreground="White" 
+                   FontSize="12"/>
+                                            <TextBlock Text="Khuếch đại âm thanh vượt ngưỡng 100%" 
+                   Foreground="Gray" 
+                   FontSize="10" 
+                   FontStyle="Italic"/>
+                                        </StackPanel>
+
+                                    </StackPanel>
+
+                                    <StackPanel Visibility="{x:Bind swAudioBoost.IsOn, Mode=OneWay}" Margin="0,10,0,0">
+                                        <Grid Margin="0,0,0,5">
+                                            <TextBlock Text="Mức độ (Gain):" Foreground="Silver" FontSize="11"/>
+                                            <TextBlock x:Name="lblBoostValue" Text="+5 dB" Foreground="Orange" FontWeight="Bold" HorizontalAlignment="Right" FontSize="11"/>
+                                        </Grid>
+                                        <Slider x:Name="sldBoostLevel" Minimum="1" Maximum="20" Value="5" StepFrequency="1" ValueChanged="swAudioBoost_Toggled"/>
+                                        <TextBlock Text="⚠️ Cảnh báo: Mức quá cao có thể gây rè loa/vỡ tiếng." Foreground="#FF5555" FontSize="9" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
                                 <TextBlock Text="Đồng bộ tiếng (Audio Sync):" Foreground="Gray" Margin="0,0,0,5"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -1476,6 +1585,16 @@
                                 </Border>
                                 <TextBlock Grid.Column="1" Text="Bật / Tắt màn hình Phụ (Studio Mode)" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
                             </Grid>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#333333" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" MinWidth="70">
+                                    <TextBlock Text="F12" FontWeight="Bold" FontSize="11" Foreground="White" HorizontalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Bật / Tắt danh sách (Player Mode)" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
+                            </Grid>
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -1485,7 +1604,7 @@
                                 <Border Background="#333333" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" MinWidth="70">
                                     <TextBlock Text="Alt + Enter" FontWeight="Bold" FontSize="11" Foreground="White" HorizontalAlignment="Center"/>
                                 </Border>
-                                <TextBlock Grid.Column="1" Text="Phóng to màn hình (Zoom)" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
+                                <TextBlock Grid.Column="1" Text="Phóng to màn hình (player Mode)" Foreground="Gray" VerticalAlignment="Center" Margin="15,0,0,0"/>
                             </Grid>
 
                             <Grid>
